@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>MingooLive – Go Live, Connect, Earn</title>
+  <meta name="description"
+    content="MingooLive – a premium mobile-first live streaming platform. Watch live, go live, send gifts, and earn coins." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════
+       MODALS & OVERLAYS (Always present, hidden by default)
+       ═══════════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- Auth Overlay (Login/Register) -->
+  <div id="auth-overlay" class="auth-overlay hidden">
+    <div class="auth-modal glass">
+      <div class="auth-logo">
+        <span class="logo-icon">🎭</span>
+        <h1>MingooLive</h1>
+      </div>
+
+      <!-- Login Form (Firebase Google) -->
+      <div id="login-form" class="auth-form">
+        <h2>Welcome Back</h2>
+        <p class="auth-sub">Sign in to continue</p>
+        
+        <button type="button" class="btn-primary w-full" onclick="signInWithGoogle()" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#4285F4; border:none; margin-bottom:15px;">
+          <svg style="width:20px;height:20px;fill:#fff" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Sign in with Google
+        </button>
+
+        <p class="auth-switch"><span onclick="hideAuthOverlay()">Continue as Guest</span></p>
+        <div id="login-error" class="error-msg hidden"></div>
+      </div>
+
+      <!-- Complete Registration Form -->
+      <form id="register-form" class="auth-form hidden" onsubmit="event.preventDefault(); completeGoogleRegistration();">
+        <h2>Complete Profile</h2>
+        <p class="auth-sub">Choose a username to continue</p>
+        <div class="form-group" style="text-align:center; margin-bottom:16px;">
+          <div id="reg-avatar-preview" class="user-avatar-lg" style="width:80px;height:80px;margin:0 auto 10px;cursor:pointer;background:#333;font-size:2rem;" onclick="document.getElementById('reg-avatar-file').click()">📷</div>
+          <input type="file" id="reg-avatar-file" accept="image/*" style="display:none;" onchange="previewRegAvatar(event)">
+          <p style="font-size:0.8rem; color:#aaa;">Click to upload avatar (optional)</p>
+        </div>
+        <div class="form-group">
+          <input type="text" id="reg-username" placeholder="Username" required />
+        </div>
+        <button type="submit" class="btn-primary w-full">Complete Registration</button>
+        <div id="reg-error" class="error-msg hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Guest Timer Popup -->
+  <div id="guest-timer-popup" class="guest-popup hidden">
+    <div class="guest-popup-inner glass">
+      <span class="popup-icon">⏱️</span>
+      <h3>Free Preview Ending</h3>
+      <p>You have <strong><span id="guest-timer-count">5:00</span></strong> left as a guest.</p>
+      <button class="btn-primary" onclick="showAuthOverlay('register')">Sign Up Free</button>
+      <button class="btn-ghost" onclick="showAuthOverlay('login')">Already have an account?</button>
+    </div>
+  </div>
+
+  <!-- Profile Editor Modal -->
+  <div id="profile-modal" class="modal-overlay hidden">
+    <div class="modal-box glass">
+      <span class="popup-icon">👤</span>
+      <h3>Edit Profile</h3>
+      <p>Update your details to stand out!</p>
+
+      <div class="input-group">
+        <label>Profile Picture</label>
+        <div class="avatar-edit-wrap" onclick="$('avatar-input').click()">
+          <div class="profile-avatar-lg" id="edit-avatar-preview"></div>
+          <div class="avatar-edit-overlay">📸</div>
+        </div>
+        <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="previewAvatar(this)" />
+      </div>
+
+      <div class="input-group">
+        <label for="edit-fullname">Full Name</label>
+        <input type="text" id="edit-fullname" placeholder="Enter your full name" />
+      </div>
+
+      <div class="input-group">
+        <label for="edit-username">Username</label>
+        <input type="text" id="edit-username" placeholder="Enter new username" />
+      </div>
+
+      <div class="input-group">
+        <label for="edit-bio">Short Bio</label>
+        <textarea id="edit-bio" placeholder="Tell the world about yourself..." rows="3"></textarea>
+      </div>
+
+      <div class="input-group">
+        <label for="edit-dob">Date of Birth</label>
+        <input type="date" id="edit-dob" max="2010-01-01" />
+      </div>
+
+      <div class="input-group">
+        <label for="edit-country">Country</label>
+                <select id="edit-country">
+          <option value="">Select Country</option>
+          <option value="US">🇺🇸 United States</option>
+          <option value="GB">🇬🇧 United Kingdom</option>
+          <option value="CA">🇨🇦 Canada</option>
+          <option value="AU">🇦🇺 Australia</option>
+          <option value="IN">🇮🇳 India</option>
+          <option value="DE">🇩🇪 Germany</option>
+          <option value="FR">🇫🇷 France</option>
+          <option value="IT">🇮🇹 Italy</option>
+          <option value="ES">🇪🇸 Spain</option>
+          <option value="BR">🇧🇷 Brazil</option>
+          <option value="JP">🇯🇵 Japan</option>
+          <option value="CN">🇨🇳 China</option>
+          <option value="KR">🇰🇷 South Korea</option>
+          <option value="MX">🇲🇽 Mexico</option>
+          <option value="ID">🇮🇩 Indonesia</option>
+          <option value="TR">🇹🇷 Turkey</option>
+          <option value="SA">🇸🇦 Saudi Arabia</option>
+          <option value="ZA">🇿🇦 South Africa</option>
+          <option value="NG">🇳🇬 Nigeria</option>
+          <option value="AR">🇦🇷 Argentina</option>
+          <option value="CO">🇨🇴 Colombia</option>
+          <option value="EG">🇪🇬 Egypt</option>
+          <option value="PK">🇵🇰 Pakistan</option>
+          <option value="BD">🇧🇩 Bangladesh</option>
+          <option value="RU">🇷🇺 Russia</option>
+          <option value="PH">🇵🇭 Philippines</option>
+          <option value="VN">🇻🇳 Vietnam</option>
+          <option value="TH">🇹🇭 Thailand</option>
+          <option value="MY">🇲🇾 Malaysia</option>
+          <option value="SG">🇸🇬 Singapore</option>
+          <option value="NZ">🇳🇿 New Zealand</option>
+          <option value="IE">🇮🇪 Ireland</option>
+          <option value="NL">🇳🇱 Netherlands</option>
+          <option value="SE">🇸🇪 Sweden</option>
+          <option value="CH">🇨🇭 Switzerland</option>
+          <option value="AE">🇦🇪 United Arab Emirates</option>
+          <option value="IL">🇮🇱 Israel</option>
+          <option value="PT">🇵🇹 Portugal</option>
+          <option value="PL">🇵🇱 Poland</option>
+          <option value="GR">🇬🇷 Greece</option>
+          <option value="AT">🇦🇹 Austria</option>
+          <option value="BE">🇧🇪 Belgium</option>
+          <option value="DK">🇩🇰 Denmark</option>
+          <option value="FI">🇫🇮 Finland</option>
+          <option value="NO">🇳🇴 Norway</option>
+          <option value="OTHER">🏳️ Other</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label for="edit-gender">Gender</label>
+        <select id="edit-gender">
+          <option value="">Select Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <!-- Profile Completion Preview in Modal -->
+      <div style="padding: 12px 16px; background: rgba(168, 85, 247, 0.1); border-radius: 12px; margin-bottom: 16px; text-align: center;">
+        <small style="color: var(--text-muted);">Profile completion will be:</small>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent); margin-top: 4px;">
+          <span id="modal-completion-preview">0</span>%
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="saveProfile()">Save Changes</button>
+        <button class="btn-ghost" onclick="closeModal('profile-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Withdrawal Modal -->
+  <div id="withdraw-modal" class="modal-overlay hidden">
+    <div class="modal-box glass">
+      <h3>Request Withdrawal</h3>
+      <p>Enter the amount of coins to withdraw:</p>
+      <input type="number" id="withdraw-amount" placeholder="Min 100 coins" min="100" />
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="submitWithdrawal()">Submit</button>
+        <button class="btn-ghost" onclick="closeModal('withdraw-modal')">Cancel</button>
+      </div>
+      <div id="withdraw-msg" class="error-msg hidden"></div>
+    </div>
+  </div>
+
+  <!-- Create Post Modal -->
+  <div id="create-post-modal" class="modal-overlay hidden">
+    <div class="modal-box glass" style="max-width: 550px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <h3 style="margin: 0; font-size: 1.3rem; font-weight: 600;">Create New Post</h3>
+        <button class="close-btn" onclick="closeModal('create-post-modal')" style="background: rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">✕</button>
+      </div>
+      
+      <div style="padding: 24px; position: relative; min-height: 300px;">
+        <!-- Lottie Upload Overlay -->
+        <div id="cp-upload-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+          <div id="lottie-upload-container" style="width: 200px; height: 200px;"></div>
+          <p style="font-size: 1.2rem; font-weight: 600; margin-top: -20px;">Uploading... <span id="cp-progress-text" style="color: var(--accent);">0%</span></p>
+        </div>
+
+        <!-- Step 1: Select Media -->
+        <div id="cp-step-1" class="cp-step active">
+          <div class="upload-area" id="cp-upload-area" onclick="$('cp-file-input').click()" style="border: 2px dashed rgba(255,255,255,0.2); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(255,255,255,0.02);">
+            <span class="upload-icon" style="font-size: 3rem; margin-bottom: 15px; display: block;">📸</span>
+            <p style="font-size: 1.1rem; color: #ddd; margin: 0 0 8px 0;">Select photos or videos</p>
+            <span style="font-size: 0.85rem; color: #888;">You can select multiple files</span>
+          </div>
+          <input type="file" id="cp-file-input" class="hidden" accept="image/*,video/*" multiple onchange="handlePostMediaSelect(event)" />
+          
+          <div id="cp-media-preview" class="media-preview-grid hidden" style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;"></div>
+          
+          <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+            <button class="btn-primary" style="padding: 12px 32px; font-weight: 600; border-radius: 24px;" onclick="nextPostStep(2)" id="cp-next-1" disabled>Next ➔</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Add Details -->
+        <div id="cp-step-2" class="cp-step hidden">
+          <div class="input-group" style="margin-bottom: 20px;">
+            <textarea id="cp-caption" placeholder="Write a captivating caption..." rows="4" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; color: #fff; font-size: 1rem; resize: none;"></textarea>
+          </div>
+          <div class="input-group" style="margin-bottom: 20px; position: relative;">
+            <span style="position: absolute; left: 16px; top: 14px; color: #888;">#</span>
+            <input type="text" id="cp-hashtags" placeholder="Hashtags (comma separated)" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px 14px 40px; color: #fff; font-size: 1rem;" />
+          </div>
+          <div class="input-group" style="margin-bottom: 24px; position: relative;">
+            <span style="position: absolute; left: 16px; top: 14px; color: #888;">📍</span>
+            <input type="text" id="cp-location" placeholder="Add Location" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px 14px 40px; color: #fff; font-size: 1rem;" />
+          </div>
+          
+          <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; margin: 0;">
+            <button class="btn-ghost" onclick="nextPostStep(1)" style="color: #aaa; padding: 10px 20px;">← Back</button>
+            <button class="btn-primary" onclick="submitPost()" style="padding: 12px 32px; font-weight: 600; border-radius: 24px; background: linear-gradient(135deg, var(--accent), var(--primary));">Share Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Post Detail Modal -->
+  <div id="post-detail-modal" class="modal-overlay hidden">
+    <div class="post-detail-box glass">
+      <button class="close-btn-abs" onclick="closeModal('post-detail-modal')">✕</button>
+      <div class="post-detail-media" style="position: relative;">
+        <div id="pd-media-container" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+          <!-- Media inserted dynamically -->
+        </div>
+        <!-- Post Options Trigger (Three dots) -->
+        <button id="pd-options-btn" class="pd-options-btn hidden" onclick="togglePostOptions()" title="Post Options">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+        <!-- Options Dropdown Menu -->
+        <div id="pd-options-menu" class="pd-options-menu glass hidden">
+          <button class="menu-item delete-btn" onclick="confirmDeletePost()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            Delete Post
+          </button>
+        </div>
+      </div>
+      <div class="post-detail-info">
+        <div class="pd-header">
+          <div class="pd-author-avatar" id="pd-author-avatar"></div>
+          <div class="pd-author-name" id="pd-author-name">Username</div>
+        </div>
+        <div class="pd-content">
+          <p id="pd-location" class="pd-location hidden" style="color: var(--accent); font-size: 0.9rem; margin-bottom: 4px;"></p>
+          <p id="pd-caption" class="pd-caption"></p>
+          <p id="pd-hashtags" class="pd-hashtags"></p>
+        </div>
+        <div class="pd-actions">
+          <button class="action-btn" id="pd-like-btn" onclick="togglePostLike()">❤️ <span id="pd-like-count">0</span></button>
+          <button class="action-btn" id="pd-save-btn" onclick="togglePostSave()">🔖</button>
+        </div>
+        <div class="pd-comments">
+          <div id="pd-comments-list" class="comments-list"></div>
+          <div class="comment-input-row">
+            <input type="text" id="pd-comment-input" placeholder="Add a comment..." onkeypress="if(event.key==='Enter') submitPostComment()" />
+            <button onclick="submitPostComment()">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Request Modal -->
+  <div id="joinreq-modal" class="modal-overlay hidden">
+    <div class="modal-box glass">
+      <span class="popup-icon">🔒</span>
+      <h3>Private Stream</h3>
+      <p>This stream requires host approval to join.</p>
+      <div id="joinreq-status" class="joinreq-status">Waiting for host...</div>
+      <button class="btn-ghost" onclick="closeModal('joinreq-modal')">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Private Call Modal (Hidden by default) -->
+  <div id="private-call-modal" class="modal hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <!-- Call Header -->
+    <div class="call-header" style="position:absolute; top:0; left:0; right:0; padding:16px; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.5); z-index:10;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div id="call-partner-avatar" class="user-avatar-sm">?</div>
+        <div>
+          <div id="call-partner-name" style="font-weight:700; color:white;">Name</div>
+          <div id="call-status" style="font-size:0.8rem; color:#aaa;">Connecting...</div>
+        </div>
+      </div>
+      <button class="icon-btn" onclick="endPrivateCall()" title="End Call" style="color:red; font-size:1.5rem;">✕</button>
+    </div>
+    <!-- Video Container (PiP Layout) -->
+    <div id="private-call-video-container" style="flex:1; width:100%; position:relative; overflow:hidden; background:#000;">
+      <!-- Remote Video (Full Screen) -->
+      <div id="remote-call-video-wrapper" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;">
+        <video id="remote-call-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+        <div id="remote-call-placeholder" style="position:absolute; top:0; left:0; width:100%; height:100%; background:#1a1a1a; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px;">
+          <div id="remote-call-avatar" class="user-avatar-lg" style="width:100px; height:100px; font-size:2.5rem; background:linear-gradient(135deg, var(--primary), var(--accent));">?</div>
+          <p style="color:#eee; font-weight:500;">Waiting for partner...</p>
+        </div>
+      </div>
+      <!-- Local Video (PiP Window) -->
+      <div id="local-call-video-wrapper" style="position:absolute; bottom:120px; right:20px; width:120px; height:160px; background:#111; border-radius:12px; overflow:hidden; border:2px solid var(--accent); z-index:10; box-shadow: 0 12px 40px rgba(0,0,0,0.8);">
+        <video id="local-call-video" autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+        <div id="local-call-placeholder" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(26,26,26,0.9); display:flex; align-items:center; justify-content:center;">
+          <span style="font-size:2.5rem;">📷</span>
+        </div>
+      </div>
+    </div>
+    <div class="call-controls" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:16px; background:rgba(0,0,0,0.7); padding:16px 24px; border-radius:50px; z-index:10;">
+      <button id="call-mute-btn" class="call-control-btn" onclick="toggleCallAudio()" title="Mute/Unmute" style="width:50px; height:50px; border-radius:50%; background:var(--accent); color:white; border:none; cursor:pointer; font-size:1.2rem; display:flex; align-items:center; justify-content:center;">🎤</button>
+      <button id="call-video-btn" class="call-control-btn" onclick="toggleCallVideo()" title="Turn Video On/Off" style="width:50px; height:50px; border-radius:50%; background:var(--accent); color:white; border:none; cursor:pointer; font-size:1.2rem; display:flex; align-items:center; justify-content:center;">📹</button>
+      <button id="call-end-btn" class="call-control-btn" onclick="endPrivateCall()" title="End Call" style="width:50px; height:50px; border-radius:50%; background:#ff4444; color:white; border:none; cursor:pointer; font-size:1.2rem; display:flex; align-items:center; justify-content:center;">☎️</button>
+    </div>
+  </div>
+
+  <!-- Incoming Call Notification (Hidden by default) -->
+  <div id="incoming-call-notification" class="notification hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.95); padding:32px; border-radius:16px; z-index:1001; text-align:center; min-width:300px; border:2px solid var(--accent);">
+    <div id="incoming-call-avatar" class="user-avatar-lg" style="width:80px; height:80px; font-size:2rem; margin:0 auto 16px;">?</div>
+    <div id="incoming-call-name" style="font-size:1.2rem; font-weight:700; color:white; margin-bottom:8px;">Name</div>
+    <div id="incoming-call-type" style="font-size:0.9rem; color:#aaa; margin-bottom:24px;">is calling...</div>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="btn-success" onclick="acceptPrivateCall()" style="padding:12px 24px; border-radius:8px; border:none; background:#44aa44; color:white; cursor:pointer; font-weight:700;">Accept</button>
+      <button class="btn-danger" onclick="rejectPrivateCall()" style="padding:12px 24px; border-radius:8px; border:none; background:#ff4444; color:white; cursor:pointer; font-weight:700;">Reject</button>
+    </div>
+  </div>
+
+  <!-- Call Ringing Overlay (Hidden by default) -->
+  <div id="call-ringing-overlay" class="overlay hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <div style="text-align:center;">
+      <div class="spinner" style="margin-bottom:16px;"></div>
+      <p style="color:white; font-size:1.1rem;">Calling <span id="ringing-partner-name">user</span>...</p>
+      <p style="color:#aaa; font-size:0.9rem; margin-top:8px;">Waiting for response</p>
+      <button class="btn-danger" onclick="cancelPrivateCall()" style="margin-top:16px; padding:10px 20px; border-radius:8px; border:none; background:#ff4444; color:white; cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════
+       APP WRAPPER
+       ═══════════════════════════════════════════════════════════════════════════════ -->
+  <div id="app">
+
+    <!-- ══ TOP BAR ══ -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <span class="logo-icon">🎭</span>
+        <span class="logo-text">MingooLive</span>
+      </div>
+      <div class="top-bar-right">
+        <div class="search-bar-wrap">
+          <button class="icon-btn search-trigger">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+          <input type="text" id="global-search" placeholder="Search users..." />
+          <!-- Search Dropdown -->
+          <div id="search-dropdown" class="search-dropdown hidden"></div>
+        </div>
+        <button class="icon-btn" id="notif-btn" title="Notifications">🔔</button>
+        <div id="user-avatar-top" class="user-avatar-sm" onclick="navigateTo('profile')"></div>
+      </div>
+    </header>
+
+    <!-- ══ CONTENT PANELS ══ -->
+    <main id="main-content">
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: HOME
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-home" class="screen active">
+        <div class="category-bar">
+          <button class="cat-pill active" data-cat="all">🔥 All</button>
+          <button class="cat-pill" data-cat="following">🤝 Following</button>
+          <button class="cat-pill" data-cat="gaming">🎮 Gaming</button>
+          <button class="cat-pill" data-cat="music">🎵 Music</button>
+          <button class="cat-pill" data-cat="talk">💬 Talk</button>
+          <button class="cat-pill" data-cat="dance">💃 Dance</button>
+          <button class="cat-pill" data-cat="cooking">🍳 Cooking</button>
+        </div>
+        <div id="stream-feed" class="stream-feed">
+          <div class="feed-loading">
+            <div class="spinner"></div>
+            <p>Loading streams...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: GO LIVE
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-golive" class="screen hidden">
+        <div class="golive-container">
+          <h2 class="screen-title">Start Your Stream</h2>
+          <div class="camera-preview-wrap">
+            <video id="camera-preview" autoplay muted playsinline></video>
+            <div class="camera-overlay">
+              <span class="preview-label">PREVIEW</span>
+            </div>
+          </div>
+          <div class="golive-form glass">
+            <div class="form-group">
+              <label>Stream Title</label>
+              <input type="text" id="stream-title" placeholder="What are you streaming today?" />
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="stream-category">
+                <option value="General">🌐 General</option>
+                <option value="Gaming">🎮 Gaming</option>
+                <option value="Music">🎵 Music</option>
+                <option value="Talk">💬 Talk</option>
+                <option value="Dance">💃 Dance</option>
+                <option value="Cooking">🍳 Cooking</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Stream Type</label>
+              <div class="stream-type-picker">
+                <button class="type-btn active" data-type="public">
+                  <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  Public
+                </button>
+                <button class="type-btn" data-type="private">
+                  <svg class="btn-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Private
+                </button>
+                <button class="type-btn" data-type="group">
+                  <svg class="btn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Group
+                </button>
+              </div>
+            </div>
+            <button id="go-live-btn" class="btn-primary btn-live w-full">
+              <span class="live-dot-anim"></span> GO LIVE
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: LIVE STREAM
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-live" class="screen hidden screen-fullscreen">
+        <div class="live-container">
+          <!-- Video Area -->
+          <div id="video-area" class="video-area">
+            <video id="remote-video" autoplay playsinline class="live-video"></video>
+            <video id="local-video" autoplay muted playsinline class="live-video hidden"></video>
+            <div id="video-placeholder" class="video-placeholder hidden">
+              <div class="placeholder-avatar" id="placeholder-avatar-el"></div>
+              <p>Camera is Off</p>
+            </div>
+            <div id="connection-overlay" class="video-placeholder">
+              <div class="spinner"></div>
+              <p>Connecting to stream...</p>
+            </div>
+            <div id="reaction-overlay" class="reaction-overlay"></div>
+          </div>
+
+          <!-- Top HUD -->
+          <div class="live-hud-top">
+            <button class="back-btn" onclick="leaveLiveScreen()">←</button>
+            <div class="hud-info">
+              <div class="hud-stream-title" id="hud-title">Stream Title</div>
+              <div class="hud-meta">
+                <span class="live-badge">LIVE</span>
+                <span class="viewer-count">
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span id="hud-viewers">0</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Host Controls -->
+            <div id="host-controls" class="host-controls hidden">
+              <button id="hud-mic-btn" class="hud-ctrl-btn" onclick="toggleMic()" title="Mute/Unmute Mic">
+                <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </button>
+              <button id="hud-cam-btn" class="hud-ctrl-btn" onclick="toggleCam()" title="Enable/Disable Camera">
+                <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              </button>
+            </div>
+
+            <!-- Viewer Playback Controls -->
+            <div id="viewer-controls" class="viewer-controls hidden">
+              <button id="viewer-mic-btn" class="hud-ctrl-btn" onclick="toggleViewerAudio()" title="Mute/Unmute Audio">
+                <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              </button>
+              <button id="viewer-cam-btn" class="hud-ctrl-btn" onclick="toggleViewerVideo()" title="Hide/Show Video">
+                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+
+            <div class="hud-host">
+              <div class="host-avatar" id="hud-host-avatar"></div>
+              <div class="host-meta-wrap">
+                <span id="hud-host-name">Host</span>
+                <button id="hud-follow-btn" class="btn-follow-sm hidden" onclick="toggleFollow()">+ Follow</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Gift + Reaction buttons -->
+          <div class="live-actions-right">
+            <button class="action-btn" onclick="sendReaction('❤️')" title="Heart">❤️</button>
+            <button class="action-btn" onclick="sendReaction('🔥')" title="Fire">🔥</button>
+            <button class="action-btn" onclick="toggleGiftPanel()" title="Gift">🎁</button>
+            <button class="action-btn" onclick="sendReaction('🎉')" title="Celebrate">🎉</button>
+            <button class="action-btn" onclick="openLiveChat()" title="Full Chat">💬</button>
+          </div>
+
+          <!-- Gift Panel -->
+          <div id="gift-panel" class="gift-panel glass hidden">
+            <h4>Send a Gift</h4>
+            <div id="gift-list" class="gift-list"></div>
+          </div>
+
+          <!-- End Stream button -->
+          <button id="end-stream-btn" class="btn-danger btn-end-stream hidden" onclick="endStream()">
+            ■ End Stream
+          </button>
+
+          <!-- Bottom: Chat -->
+          <div class="live-chat-area">
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-row">
+              <input type="text" id="chat-input" placeholder="Say something..." />
+              <button id="chat-send-btn" onclick="sendChatMessage('live')">➤</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Join Request Toast -->
+        <div id="join-request-toast" class="join-toast hidden">
+          <div class="join-toast-inner glass">
+            <span id="join-req-username">username</span> wants to join
+            <div class="join-toast-actions">
+              <button class="btn-sm btn-success" onclick="respondToJoinRequest(true)">✓ Allow</button>
+              <button class="btn-sm btn-danger" onclick="respondToJoinRequest(false)">✗ Deny</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: CHAT LIST
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-chat" class="screen hidden">
+        <div class="screen-inner">
+          <h2 class="screen-title">Messages</h2>
+          <div id="chat-list" class="chat-list" style="margin-top:20px;display:flex;flex-direction:column;gap:12px;">
+            <div class="feed-loading">
+              <div class="spinner"></div>
+              <p>Loading conversations...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: CHAT THREAD
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-chat-thread" class="screen screen-fullscreen hidden" style="background:var(--bg-dark)">
+        <!-- Header with Partner Info & Call Buttons -->
+        <div class="chat-thread-header top-bar" style="justify-content: space-between;">
+          <div class="top-bar-left">
+            <button class="icon-btn" onclick="navigateTo('chat')">←</button>
+            <div id="chat-thread-partner-avatar" class="user-avatar-sm">?</div>
+            <div id="chat-thread-partner-name" style="font-weight:700">Name</div>
+          </div>
+          
+          <!-- Call Action Buttons (Right Side) -->
+          <div class="top-bar-right" style="gap: 12px;">
+            <!-- Audio Call Button -->
+            <button class="icon-btn" id="audio-call-btn" title="Start Audio Call" onclick="initiatePrivateAudioCall()" style="font-size: 1.3rem;">
+              🎤
+            </button>
+            
+            <!-- Video Call Button -->
+            <button class="icon-btn" id="video-call-btn" title="Start Video Call" onclick="initiatePrivateVideoCall()" style="font-size: 1.3rem;">
+              📹
+            </button>
+          </div>
+        </div>
+
+        <!-- Message History -->
+        <div id="chat-thread-messages"
+          style="flex:1; overflow-y:auto; padding:80px 16px 80px; display:flex; flex-direction:column; gap:12px;">
+        </div>
+
+        <!-- Message Input -->
+        <div class="chat-input-row glass"
+          style="position:fixed; bottom:0; padding:12px; display:flex; gap:10px; width:100%; max-width:480px; left:50%; transform:translateX(-50%); z-index:100">
+          <input type="text" id="chat-thread-input" placeholder="Type a message..." style="flex:1"
+            onkeypress="if(event.key==='Enter') sendDirectMessage()">
+          <button class="btn-primary" onclick="sendDirectMessage()" style="padding:10px 15px">Send</button>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: WALLET
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-wallet" class="screen hidden">
+        <div class="screen-inner">
+          <h2 class="screen-title">My Wallet</h2>
+          <div class="wallet-balance-card glass">
+            <div class="balance-icon">🪙</div>
+            <div class="balance-val" id="wallet-balance">—</div>
+            <div class="balance-label">Mingoo Coins</div>
+            <button class="btn-primary mt-1" onclick="showWithdrawModal()">💸 Request Withdrawal</button>
+          </div>
+
+          <h3 class="section-sub-title">Get More Coins</h3>
+          <div class="coin-packages">
+            <div class="coin-pkg glass" onclick="buyCoins(500)">
+              <div class="pkg-amt">500 🪙</div>
+              <div class="pkg-price">$4.99</div>
+            </div>
+            <div class="coin-pkg glass" onclick="buyCoins(1200)">
+              <div class="pkg-amt">1,200 🪙</div>
+              <div class="pkg-price">$9.99</div>
+            </div>
+            <div class="coin-pkg glass" onclick="buyCoins(2500)">
+              <div class="pkg-amt">2,500 🪙</div>
+              <div class="pkg-price">$19.99</div>
+            </div>
+          </div>
+
+          <h3 class="section-sub-title">Transaction History</h3>
+          <div id="wallet-transactions" class="wallet-txns"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: MY PROFILE
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-profile" class="screen hidden">
+        <div class="screen-inner">
+          <div id="profile-guest-msg" class="profile-guest hidden">
+            <span class="empty-icon">
+              <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <p>You're browsing as a guest</p>
+            <button class="btn-primary" onclick="showAuthOverlay('register')">Create Account</button>
+            <button class="btn-ghost" onclick="showAuthOverlay('login')">Log In</button>
+          </div>
+          <div id="profile-user" class="profile-user hidden">
+            <!-- Premium Profile Header -->
+            <div class="profile-header-premium glass">
+              <div class="profile-avatar-xl" id="profile-avatar-el"></div>
+              <h2 id="profile-username" class="premium-username">Username <span class="verified-badge hidden">✓</span></h2>
+              <h3 id="profile-fullname" class="premium-fullname">Full Name</h3>
+              <p id="profile-bio" class="premium-bio"></p>
+              <div class="profile-meta-row">
+                <span id="profile-age-country"></span>
+                <span id="profile-join-date"></span>
+              </div>
+              
+              <!-- Stats Row -->
+              <div class="profile-stats-row">
+                <div class="stat-col"><span class="stat-num" id="profile-followers">0</span><span class="stat-lbl">Followers</span></div>
+                <div class="stat-col"><span class="stat-num" id="profile-following">0</span><span class="stat-lbl">Following</span></div>
+                <div class="stat-col"><span class="stat-num" id="profile-posts-count">0</span><span class="stat-lbl">Posts</span></div>
+                <div class="stat-col"><span class="stat-num" id="profile-fans-count">0</span><span class="stat-lbl">Fans</span></div>
+                <div class="stat-col"><span class="stat-num" id="profile-gifts-count">0</span><span class="stat-lbl">Gifts</span></div>
+              </div>
+
+              <!-- Completion Progress -->
+              <div class="profile-completion-wrap">
+                <div class="completion-header">
+                  <span>Profile Completion <span id="profile-completion-pct">0%</span></span>
+                  <span id="profile-completion-next">Complete your bio</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="profile-completion-bar"></div></div>
+              </div>
+
+              <!-- Primary Actions -->
+              <div class="profile-primary-actions">
+                <button class="btn-primary" onclick="openProfileEditor()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Edit Profile
+                </button>
+                <button class="btn-secondary" onclick="openCreatePostModal()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  Create Post
+                </button>
+                <button class="btn-danger pulse-anim" onclick="navigateTo('golive')" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-1.41-7.07a4 4 0 0 1 0 5.66m-9.9 0a6 6 0 0 1 0-8.49m1.41 7.07a4 4 0 0 1 0-5.66"/></svg>
+                  Start Live Stream
+                </button>
+              </div>
+            </div>
+
+            <!-- Profile Tabs -->
+            <div class="profile-tabs">
+              <button class="profile-tab active" onclick="switchProfileTab('all', this)">ALL</button>
+              <button class="profile-tab" onclick="switchProfileTab('posts', this)">POSTS</button>
+              <button class="profile-tab" onclick="switchProfileTab('moments', this)">MOMENTS</button>
+              <button class="profile-tab" onclick="switchProfileTab('fans', this)">FOR FANS</button>
+              <button class="profile-tab" onclick="switchProfileTab('gifts', this)">GIFT COLLECTIONS</button>
+            </div>
+
+            <!-- Tab Content Area -->
+            <div id="profile-tab-content" class="tab-content-area">
+              <!-- Dynamically populated -->
+              <div class="feed-loading"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: VIEW USER PROFILE
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-view-profile" class="screen hidden">
+        <div class="screen-inner">
+          <header class="profile-header-alt">
+            <button class="back-btn-alt" onclick="goBack()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <h2 class="screen-title" style="margin-bottom:0" id="v-profile-title">Profile</h2>
+          </header>
+
+          <div class="profile-header-premium glass" style="margin-top:20px;">
+            <div class="profile-avatar-xl" id="v-profile-avatar"></div>
+            <h2 id="v-profile-username" class="premium-username">Username</h2>
+            <h3 id="v-profile-fullname" class="premium-fullname"></h3>
+            <p id="v-profile-bio" class="premium-bio"></p>
+            <div class="profile-meta-row">
+              <span id="v-profile-age-country"></span>
+              <span id="v-profile-join-date"></span>
+              <span id="v-profile-last-active" style="color:var(--success);"></span>
+            </div>
+            
+            <div class="profile-stats-row">
+              <div class="stat-col"><span class="stat-num" id="v-profile-followers">0</span><span class="stat-lbl">Followers</span></div>
+              <div class="stat-col"><span class="stat-num" id="v-profile-following">0</span><span class="stat-lbl">Following</span></div>
+              <div class="stat-col"><span class="stat-num" id="v-profile-posts">0</span><span class="stat-lbl">Posts</span></div>
+              <div class="stat-col"><span class="stat-num" id="v-profile-fans">0</span><span class="stat-lbl">Fans</span></div>
+              <div class="stat-col"><span class="stat-num" id="v-profile-gifts">0</span><span class="stat-lbl">Gifts</span></div>
+            </div>
+
+            <!-- View Profile Actions -->
+            <div class="profile-primary-actions">
+              <button id="v-follow-btn" class="btn-primary w-full" onclick="toggleFollowProfile()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                Follow
+              </button>
+              <div class="split-actions">
+                <button class="btn-secondary flex-1" id="v-message-btn" onclick="messageUserProfile()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  Message
+                </button>
+                <button class="btn-accent flex-1" id="v-gift-btn" onclick="toggleGiftPanel()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  Gift
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- View Profile Tabs -->
+          <div class="profile-tabs">
+            <button class="profile-tab active" onclick="switchViewProfileTab('all', this)">ALL</button>
+            <button class="profile-tab" onclick="switchViewProfileTab('posts', this)">POSTS</button>
+            <button class="profile-tab" onclick="switchViewProfileTab('fans', this)">FOR FANS
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px;">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </button>
+          </div>
+
+          <div id="v-profile-tab-content" class="tab-content-area"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: FOLLOW LIST
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-follow-list" class="screen hidden">
+        <div class="screen-inner">
+          <header class="profile-header-alt">
+            <button class="back-btn-alt" onclick="goBackFromFollowList()">←</button>
+            <h2 id="follow-list-title" class="screen-title" style="margin-bottom:0">List</h2>
+          </header>
+          <div id="follow-list-content" class="follow-list-container" style="margin-top:20px;">
+            <div class="feed-loading">
+              <div class="spinner"></div>
+              <p>Loading list...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           SCREEN: LIVE STREAM CHAT (Dedicated Full-Screen Chat)
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <section id="screen-live-chat" class="screen hidden screen-fullscreen">
+        <div class="live-chat-container">
+          
+          <!-- Chat Header -->
+          <div class="chat-header glass">
+            <div class="chat-header-left">
+              <button class="back-btn" onclick="exitLiveChat()">←</button>
+              <div class="chat-header-info">
+                <h2 id="chat-stream-title" class="chat-title">Stream Chat</h2>
+                <p id="chat-viewer-count" class="chat-meta">
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>0 viewers</span>
+                </p>
+              </div>
+            </div>
+            
+            <!-- Chat Header Actions -->
+            <div class="chat-header-actions">
+              <button class="icon-btn" id="chat-pin-btn" title="Pinned Messages" onclick="togglePinnedMessages()">
+                <svg viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.54l-2.78 3.5A2 2 0 0 0 5 15.24Z"/></svg>
+              </button>
+              <button class="icon-btn" id="chat-users-btn" title="Viewers" onclick="toggleUserList()">
+                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </button>
+              <button class="icon-btn" id="chat-settings-btn" title="Settings" onclick="toggleChatSettings()">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Chat Area -->
+          <div class="chat-main">
+            
+            <!-- Messages Container -->
+            <div id="live-chat-messages" class="chat-messages-container">
+              <div class="chat-loading">
+                <div class="spinner"></div>
+                <p>Loading chat...</p>
+              </div>
+            </div>
+
+            <!-- Pinned Messages Panel (Hidden by default) -->
+            <div id="pinned-messages-panel" class="pinned-panel glass hidden">
+              <div class="pinned-header">
+                <h3>📌 Pinned Messages</h3>
+                <button class="close-btn" onclick="togglePinnedMessages()">✕</button>
+              </div>
+              <div id="pinned-messages-list" class="pinned-list">
+                <p class="empty-msg">No pinned messages</p>
+              </div>
+            </div>
+
+            <!-- User List Panel (Hidden by default) -->
+            <div id="user-list-panel" class="user-panel glass hidden">
+              <div class="user-panel-header">
+                <h3>👥 Viewers</h3>
+                <button class="close-btn" onclick="toggleUserList()">✕</button>
+              </div>
+              <div id="user-list-content" class="user-list">
+                <p class="empty-msg">No viewers</p>
+              </div>
+            </div>
+
+            <!-- Chat Settings Panel (Hidden by default) -->
+            <div id="chat-settings-panel" class="settings-panel glass hidden">
+              <div class="settings-header">
+                <h3>⚙️ Chat Settings</h3>
+                <button class="close-btn" onclick="toggleChatSettings()">✕</button>
+              </div>
+              <div class="settings-content">
+                <!-- Mute Notifications -->
+                <div class="setting-item">
+                  <label>
+                    <input type="checkbox" id="mute-notifications" onchange="toggleMuteNotifications()" />
+                    <span>Mute Notifications</span>
+                  </label>
+                </div>
+
+                <!-- Hide User Avatars -->
+                <div class="setting-item">
+                  <label>
+                    <input type="checkbox" id="hide-avatars" onchange="toggleHideAvatars()" />
+                    <span>Hide Avatars</span>
+                  </label>
+                </div>
+
+                <!-- Compact Mode -->
+                <div class="setting-item">
+                  <label>
+                    <input type="checkbox" id="compact-mode" onchange="toggleCompactMode()" />
+                    <span>Compact Mode</span>
+                  </label>
+                </div>
+
+                <!-- Show Timestamps -->
+                <div class="setting-item">
+                  <label>
+                    <input type="checkbox" id="show-timestamps" onchange="toggleShowTimestamps()" checked />
+                    <span>Show Timestamps</span>
+                  </label>
+                </div>
+
+                <!-- Filter Messages -->
+                <div class="setting-item">
+                  <label>Filter Messages:</label>
+                  <select id="message-filter" onchange="filterMessages(this.value)">
+                    <option value="all">All Messages</option>
+                    <option value="users">Users Only</option>
+                    <option value="system">System Only</option>
+                    <option value="gifts">Gifts Only</option>
+                  </select>
+                </div>
+
+                <!-- Clear Chat -->
+                <div class="setting-item">
+                  <button class="btn-ghost" onclick="clearChatHistory()">🗑️ Clear Chat History</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Input Area -->
+          <div class="chat-input-area glass">
+            <div class="chat-input-wrapper">
+              <!-- Emoji Picker Button -->
+              <button class="emoji-btn" id="emoji-picker-btn" title="Emoji" onclick="toggleEmojiPicker()">😊</button>
+
+              <!-- Message Input -->
+              <input 
+                type="text" 
+                id="live-chat-input" 
+                class="chat-input" 
+                placeholder="Say something..." 
+                maxlength="500"
+                onkeypress="if(event.key==='Enter') sendLiveChatMessage()"
+              />
+
+              <!-- Character Count -->
+              <span class="char-count">
+                <span id="char-count-current">0</span>/500
+              </span>
+
+              <!-- Send Button -->
+              <button class="send-btn" id="chat-send-btn" onclick="sendLiveChatMessage()" title="Send Message">
+                ➤
+              </button>
+            </div>
+
+            <!-- Emoji Picker (Hidden by default) -->
+            <div id="emoji-picker" class="emoji-picker glass hidden">
+              <div class="emoji-grid">
+                <button class="emoji-item" onclick="insertEmoji('😀')">😀</button>
+                <button class="emoji-item" onclick="insertEmoji('😂')">😂</button>
+                <button class="emoji-item" onclick="insertEmoji('❤️')">❤️</button>
+                <button class="emoji-item" onclick="insertEmoji('🔥')">🔥</button>
+                <button class="emoji-item" onclick="insertEmoji('👍')">👍</button>
+                <button class="emoji-item" onclick="insertEmoji('🎉')">🎉</button>
+                <button class="emoji-item" onclick="insertEmoji('😍')">😍</button>
+                <button class="emoji-item" onclick="insertEmoji('🤔')">🤔</button>
+                <button class="emoji-item" onclick="insertEmoji('😎')">😎</button>
+                <button class="emoji-item" onclick="insertEmoji('🚀')">🚀</button>
+                <button class="emoji-item" onclick="insertEmoji('💯')">💯</button>
+                <button class="emoji-item" onclick="insertEmoji('🎮')">🎮</button>
+              </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="typing-indicator hidden">
+              <span id="typing-users">Someone</span> is typing...
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ══ BOTTOM NAVIGATION ══ -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-screen="home" onclick="navigateTo('home')">
+        <span class="nav-icon">
+          <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button class="nav-item" data-screen="golive" onclick="navigateTo('golive')">
+        <span class="nav-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-1.41-7.07a4 4 0 0 1 0 5.66m-9.9 0a6 6 0 0 1 0-8.49m1.41 7.07a4 4 0 0 1 0-5.66"/></svg>
+        </span>
+        <span class="nav-label">Go Live</span>
+      </button>
+      <button class="nav-item" data-screen="chat" onclick="navigateTo('chat')">
+        <span class="nav-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span class="nav-label">Chat</span>
+      </button>
+      <button class="nav-item" data-screen="wallet" onclick="navigateTo('wallet')">
+        <span class="nav-icon">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+        <span class="nav-label">Wallet</span>
+      </button>
+      <button class="nav-item" data-screen="profile" onclick="navigateTo('profile')">
+        <span class="nav-icon">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
+        <span class="nav-label">Profile</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════
+       EXTERNAL LIBRARIES
+       ═══════════════════════════════════════════════════════════════════════════════ -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════
+       APP CONFIGURATION & INITIALIZATION
+       ═══════════════════════════════════════════════════════════════════════════════ -->
+  <script>
+    window.__APP_CONFIG__ = window.__APP_CONFIG__ || {
+      apiBase: window.location.origin
+    };
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════
+       MAIN APPLICATION SCRIPT
+       ═══════════════════════════════════════════════════════════════════════════════ -->
+  <script src="/js/services/chatService.js"></script>
+  <script src="/js/ui/chatUI.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+  <script src="app.js" defer></script>
+</body>
+
+</html>
