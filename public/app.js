@@ -28,9 +28,30 @@ let isGoLiveInProgress = false;
 let isGiftSending = false;
 let homeRefreshTimer = null;
 
+// New livestream host analytics states
+let streamPeakViewers = 0;
+let streamTotalJoins = 0;
+let giftActivityData = [];
+let activityFeedData = [];
 
 // ─── UTILITY ─────────────────────────────────────────────────────────
-const $ = (id) => document.getElementById(id);
+const $ = (id) => {
+    const liveIds = [
+        'video-area', 'video-placeholder', 'connection-overlay', 'reaction-overlay',
+        'hud-title', 'hud-viewers', 'host-controls', 'viewer-controls',
+        'hud-mic-btn', 'hud-cam-btn', 'viewer-mic-btn', 'viewer-cam-btn',
+        'hud-host-avatar', 'hud-host-name', 'hud-follow-btn', 'gift-panel', 'gift-list',
+        'end-stream-btn', 'chat-messages', 'chat-input', 'chat-send-btn',
+        'camera-device-select', 'mic-device-select', 'mirror-btn',
+        'join-request-toast', 'join-req-username', 'send-gift-btn', 'gift-error'
+    ];
+    if (typeof currentScreen !== 'undefined' && currentScreen === 'live' && liveIds.includes(id)) {
+        const prefix = (typeof isHost !== 'undefined' && isHost) ? 'host-' : 'viewer-';
+        const el = document.getElementById(prefix + id);
+        if (el) return el;
+    }
+    return document.getElementById(id);
+};
 const isMobileDevice = () =>
     /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent || '');
 const toAssetUrl = (url) => {
@@ -240,6 +261,11 @@ async function joinRoom(roomName) {
         .on('broadcast', { event: 'gift-animation' }, ({ payload }) => {
             console.log('[Socket] Gift received:', payload);
             showGiftBurst(payload.gift.icon, payload.sender, payload.gift.name);
+            if (isHost) {
+                addGiftActivityItem(payload.sender, payload.gift.name, 1);
+                addActivityFeedItem('gift', `${payload.sender} sent you ${payload.gift.icon} ${payload.gift.name}`);
+                updateHostAnalyticsUI();
+            }
         })
         .on('broadcast', { event: 'stream-ended' }, ({ payload }) => {
             if (!isHost) {
@@ -250,14 +276,24 @@ async function joinRoom(roomName) {
         .on('broadcast', { event: 'user-joined' }, ({ payload }) => {
             console.log('[Socket] User joined event:', payload);
             appendChat('System', `${payload.username} joined 🎉`, true);
+            if (isHost) {
+                streamTotalJoins++;
+                addActivityFeedItem('join', `${payload.username} joined the stream`);
+                updateHostAnalyticsUI();
+            }
+        })
+        .on('broadcast', { event: 'follow' }, ({ payload }) => {
+            if (isHost) {
+                addActivityFeedItem('follow', `${payload.username} followed you!`);
+                updateHostAnalyticsUI();
+            }
         })
         .on('broadcast', { event: 'join-request-received' }, ({ payload }) => {
             if (isHost) {
                 showJoinRequestToast(payload.userId, payload.username, payload.streamId, payload.requestId);
+                addActivityFeedItem('join-request', `${payload.username} requested to join`);
+                updateHostAnalyticsUI();
             }
-        })
-        .on('broadcast', { event: 'guest-left' }, ({ payload }) => {
-            removeGuestVideo(payload.userId);
         })
         .on('broadcast', { event: 'guest-left' }, ({ payload }) => {
             removeGuestVideo(payload.userId);
@@ -266,11 +302,14 @@ async function joinRoom(roomName) {
             const state = channel.presenceState();
             const count = Object.keys(state).length;
             console.log('[Socket] Presence sync. Current count:', count, state);
-            $('hud-viewers').textContent = count;
+            const hudViewersEl = $('hud-viewers');
+            if (hudViewersEl) hudViewersEl.textContent = count;
 
             // Sync viewer count to DB (if host)
             if (isHost && currentStream) {
                 apiReq('PUT', `/api/streams/${currentStream.id}/viewers`, { count }).catch(() => { });
+                streamPeakViewers = Math.max(streamPeakViewers, count);
+                updateHostAnalyticsUI();
             }
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
@@ -310,6 +349,91 @@ async function joinRoom(roomName) {
 
     window.roomChannel = channel;
 }
+
+// ─── HOST ANALYTICS HELPERS ──────────────────────────────────────────
+function addGiftActivityItem(username, giftName, quantity = 1) {
+    const existing = giftActivityData.find(g => g.username === username && g.giftName === giftName);
+    if (existing) {
+        existing.quantity += quantity;
+    } else {
+        giftActivityData.unshift({ username, giftName, quantity });
+    }
+    if (giftActivityData.length > 50) giftActivityData.pop();
+}
+
+function addActivityFeedItem(type, text) {
+    activityFeedData.unshift({
+        type,
+        text,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    });
+    if (activityFeedData.length > 50) activityFeedData.pop();
+}
+
+function updateHostAnalyticsUI() {
+    if (!isHost) return;
+    
+    const currentValEl = document.getElementById('host-current-viewers');
+    const peakValEl = document.getElementById('host-peak-viewers');
+    const totalValEl = document.getElementById('host-total-joins');
+    
+    if (currentValEl) currentValEl.textContent = $('hud-viewers')?.textContent || '0';
+    if (peakValEl) peakValEl.textContent = streamPeakViewers;
+    if (totalValEl) totalValEl.textContent = streamTotalJoins;
+
+    // Update Gift Activity list
+    const giftListEl = document.getElementById('host-gift-activity');
+    if (giftListEl) {
+        if (giftActivityData.length === 0) {
+            giftListEl.innerHTML = '<div class="empty-state-text">No gifts received yet</div>';
+        } else {
+            giftListEl.innerHTML = giftActivityData.map(g => `
+                <div class="gift-activity-item glass-mini">
+                    <span class="gift-sender">${escapeHTML(g.username)}</span>
+                    <span class="gift-action">sent</span>
+                    <span class="gift-details">${escapeHTML(g.giftName)}</span>
+                    <span class="gift-qty">x${g.quantity}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Update Activity Feed list
+    const feedListEl = document.getElementById('host-activity-feed');
+    if (feedListEl) {
+        if (activityFeedData.length === 0) {
+            feedListEl.innerHTML = '<div class="empty-state-text">Waiting for activity...</div>';
+        } else {
+            feedListEl.innerHTML = activityFeedData.map(act => {
+                let icon = '🔔';
+                if (act.type === 'join') icon = '👤';
+                else if (act.type === 'follow') icon = '💖';
+                else if (act.type === 'gift') icon = '🎁';
+                else if (act.type === 'join-request') icon = '✋';
+                
+                return `
+                    <div class="feed-activity-item glass-mini type-${act.type}">
+                        <span class="activity-icon">${icon}</span>
+                        <div class="activity-content">
+                            <span class="activity-text">${escapeHTML(act.text)}</span>
+                            <span class="activity-time">${act.timestamp}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+}
+
 
 // ─── SEARCH ───────────────────────────────────────────────────────────
 function initSearch() {
@@ -844,6 +968,14 @@ async function openStream(streamId) {
 async function enterLiveScreen(stream, existingToken = null) {
     currentScreen = 'live';
     currentStream = stream;
+    isHost = currentUser && currentUser.id === stream.host_id;
+
+    // Reset Host Analytics
+    streamPeakViewers = 0;
+    streamTotalJoins = 0;
+    giftActivityData = [];
+    activityFeedData = [];
+
     if (!shouldPublishLocalTracks()) {
         stopCamera(); // viewers do not need local preview stream
     }
@@ -855,11 +987,15 @@ async function enterLiveScreen(stream, existingToken = null) {
     $('video-area').className = 'video-area grid-1'; // Reset grid
 
     // Update HUD
-    $('hud-title').textContent = stream.title || 'Live Stream';
-    $('hud-viewers').textContent = stream.viewer_count || 0;
-    $('hud-host-name').textContent = stream.username || 'Host';
+    const hudTitle = $('hud-title');
+    if (hudTitle) hudTitle.textContent = stream.title || 'Live Stream';
+    const hudViewers = $('hud-viewers');
+    if (hudViewers) hudViewers.textContent = stream.viewer_count || 0;
+    const hudHostName = $('hud-host-name');
+    if (hudHostName) hudHostName.textContent = stream.username || 'Host';
 
-    setAvatar($('hud-host-avatar'), stream.avatar, stream.username || 'H');
+    const hudHostAvatar = $('hud-host-avatar');
+    if (hudHostAvatar) setAvatar(hudHostAvatar, stream.avatar, stream.username || 'H');
 
     // Show/hide end stream button & host controls
     const endBtn = $('end-stream-btn');
@@ -888,13 +1024,36 @@ async function enterLiveScreen(stream, existingToken = null) {
     }
 
     // Clear chat
-    const chatBox = $('chat-messages');
-    if (chatBox) chatBox.innerHTML = '';
+    if (isHost) {
+        const chatBox = $('chat-messages');
+        if (chatBox) chatBox.innerHTML = '';
+    } else {
+        const chatBox = $('chat-messages');
+        if (chatBox) {
+            chatBox.innerHTML = `
+                <div class="chat-empty-state">
+                  <span class="chat-empty-icon">💬</span>
+                  <p>Welcome to the stream! Say hello to the host.</p>
+                </div>
+            `;
+        }
+    }
 
     // Switch screen
     document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.classList.add('hidden'); });
     $('screen-live').classList.remove('hidden');
     $('screen-live').classList.add('active');
+
+    // Toggle Host vs Viewer layout structures
+    if (isHost) {
+        document.getElementById('host-live-screen').classList.remove('hidden');
+        document.getElementById('viewer-live-screen').classList.add('hidden');
+        updateHostAnalyticsUI();
+        await updateDevicesList(); // Populate device select menus
+    } else {
+        document.getElementById('viewer-live-screen').classList.remove('hidden');
+        document.getElementById('host-live-screen').classList.add('hidden');
+    }
 
     // Join socket room
     await initSocket();
@@ -927,6 +1086,7 @@ async function enterLiveScreen(stream, existingToken = null) {
             localVid.play().catch((err) => {
                 console.warn('[Live] Local video play() failed:', err);
             });
+            updateLiveMirror(); // Apply mirror status immediately
         } else {
             console.warn('[Live] mediaStream not available for preview');
         }
@@ -975,8 +1135,22 @@ async function enterLiveScreen(stream, existingToken = null) {
         }
     }
 
-    // Load gifts
-    loadGifts();
+    // Load gifts for viewer
+    if (!isHost) {
+        console.log('[Live] Viewer mode detected, loading gifts');
+        // Reset ALL gift selection state for new stream
+        selectedViewerGift = null;
+        selectedGiftId = null;
+        selectedGift = null;
+        selectedGiftCost = null;
+        selectedGiftIcon = null;
+        isViewerGiftSending = false;
+        clearViewerGiftError();
+        await loadViewerGifts();
+    } else {
+        console.log('[Live] Host mode detected, skipping viewer gift loading');
+        loadGifts();
+    }
 
     // Check follow status
     updateFollowButton();
@@ -1122,9 +1296,9 @@ async function ensureLocalMediaPublished() {
             await initCamera();
         }
 
-        // Enable microphone and camera
-        await livekitRoom.localParticipant.setMicrophoneEnabled(true);
-        await livekitRoom.localParticipant.setCameraEnabled(true);
+        // Enable microphone and camera based on pre-live screen configurations
+        await livekitRoom.localParticipant.setCameraEnabled(isCameraOn, isCameraOn && selectedCameraId ? { deviceId: selectedCameraId } : undefined);
+        await livekitRoom.localParticipant.setMicrophoneEnabled(isMicOn, isMicOn && selectedMicId ? { deviceId: selectedMicId } : undefined);
 
         // Get the video track publication
         const videoPub = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0];
@@ -1444,7 +1618,17 @@ function leaveLiveScreen() {
     isHost = false;
     isGuestStreamer = false;
     activeGuestIds.clear();
-    $('video-area').innerHTML = ''; // Clean up all video elements
+    
+    // Clean up both possible video areas
+    const hostVideoArea = document.getElementById('host-video-area');
+    if (hostVideoArea) hostVideoArea.innerHTML = '';
+    const viewerVideoArea = document.getElementById('viewer-video-area');
+    if (viewerVideoArea) viewerVideoArea.innerHTML = '';
+
+    const hostLiveScreen = document.getElementById('host-live-screen');
+    if (hostLiveScreen) hostLiveScreen.classList.add('hidden');
+    const viewerLiveScreen = document.getElementById('viewer-live-screen');
+    if (viewerLiveScreen) viewerLiveScreen.classList.add('hidden');
 
     clearGuestTimer();
     $('guest-timer-popup').classList.add('hidden');
@@ -1452,55 +1636,343 @@ function leaveLiveScreen() {
     navigateTo('home');
 }
 
+// ─── LIVE STREAM CONTROLS ─────────────────────────────────────────────
+function toggleLiveMirror() {
+    isCameraMirrored = !isCameraMirrored;
+    localStorage.setItem('prelive_camera_mirrored', isCameraMirrored);
+    console.log('[Live Controls] Toggle mirror. New state:', isCameraMirrored);
+    updateLiveMirror();
+    
+    const mirrorBtn = document.getElementById('host-mirror-btn');
+    if (mirrorBtn) {
+        mirrorBtn.classList.toggle('active', isCameraMirrored);
+    }
+}
+
+function updateLiveMirror() {
+    const localVideo = document.getElementById('local-video');
+    if (localVideo) {
+        if (isCameraMirrored) {
+            localVideo.style.transform = 'scaleX(-1)';
+        } else {
+            localVideo.style.transform = 'none';
+        }
+    }
+}
+
+async function changeLiveCameraDevice(deviceId) {
+    console.log('[Live Controls] Changing camera device to:', deviceId);
+    selectedCameraId = deviceId;
+    localStorage.setItem('prelive_camera_id', deviceId);
+    
+    if (livekitRoom?.localParticipant) {
+        try {
+            const enabled = !!livekitRoom.localParticipant.isCameraEnabled;
+            if (enabled) {
+                await livekitRoom.localParticipant.setCameraEnabled(true, { deviceId });
+            }
+        } catch (e) {
+            console.error('Failed to change LiveKit camera device:', e);
+        }
+    }
+    
+    if (isCameraOn) {
+        await initCamera();
+    }
+}
+
+async function changeLiveMicDevice(deviceId) {
+    console.log('[Live Controls] Changing mic device to:', deviceId);
+    selectedMicId = deviceId;
+    localStorage.setItem('prelive_mic_id', deviceId);
+    
+    if (livekitRoom?.localParticipant) {
+        try {
+            const audioPub = Array.from(livekitRoom.localParticipant.audioTrackPublications.values())[0];
+            const enabled = audioPub ? !audioPub.isMuted : !!livekitRoom.localParticipant.isMicrophoneEnabled;
+            if (enabled) {
+                await livekitRoom.localParticipant.setMicrophoneEnabled(true, { deviceId });
+            }
+        } catch (e) {
+            console.error('Failed to change LiveKit mic device:', e);
+        }
+    }
+    
+    if (isMicOn) {
+        await initCamera();
+    }
+}
+
 // ─── GO LIVE ──────────────────────────────────────────────────────────
 let mediaStream = null;
+let selectedCameraId = localStorage.getItem('prelive_camera_id') || '';
+let selectedMicId = localStorage.getItem('prelive_mic_id') || '';
+let isCameraOn = true;
+let isMicOn = true;
+let isCameraMirrored = localStorage.getItem('prelive_camera_mirrored') === 'true';
+
+function getCameraIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-video"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>`;
+}
+function getCameraOffIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-video-off"><path d="M10.66 6H14a2 2 0 0 1 2 2v3.34"/><path d="m22 8-6 4 6 4v-8Z"/><path d="M3.56 3.56 20.44 20.44"/><path d="M2 8.12V16a2 2 0 0 0 2 2h9.88"/></svg>`;
+}
+function getMicIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`;
+}
+function getMicOffIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic-off"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 11v-1"/><path d="m9 9-.01 3a3 3 0 0 0 5.93 0"/><path d="M9.009 3.805a3 3 0 0 1 5.991.195v3.195"/><path d="M9 20h6"/><line x1="12" x2="12" y1="16" y2="20"/><path d="M5.61 5.61A7 7 0 0 0 5 11v1"/></svg>`;
+}
+
+async function updateDevicesList() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoSelect = $('camera-device-select');
+        const audioSelect = $('mic-device-select');
+
+        if (!videoSelect || !audioSelect) return;
+
+        const prevVideoId = selectedCameraId || videoSelect.value;
+        const prevAudioId = selectedMicId || audioSelect.value;
+
+        videoSelect.innerHTML = '';
+        audioSelect.innerHTML = '';
+
+        let videoCount = 0;
+        let audioCount = 0;
+
+        devices.forEach(device => {
+            if (device.kind === 'videoinput') {
+                videoCount++;
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `Webcam ${videoCount}`;
+                videoSelect.appendChild(option);
+            } else if (device.kind === 'audioinput') {
+                audioCount++;
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `Microphone ${audioCount}`;
+                audioSelect.appendChild(option);
+            }
+        });
+
+        if (videoCount === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No Camera Available';
+            videoSelect.appendChild(option);
+        }
+        if (audioCount === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No Mic Available';
+            audioSelect.appendChild(option);
+        }
+
+        if (Array.from(videoSelect.options).some(opt => opt.value === prevVideoId)) {
+            videoSelect.value = prevVideoId;
+            selectedCameraId = prevVideoId;
+        } else if (videoSelect.options.length > 0) {
+            selectedCameraId = videoSelect.value;
+        }
+
+        if (Array.from(audioSelect.options).some(opt => opt.value === prevAudioId)) {
+            audioSelect.value = prevAudioId;
+            selectedMicId = prevAudioId;
+        } else if (audioSelect.options.length > 0) {
+            selectedMicId = audioSelect.value;
+        }
+    } catch (err) {
+        console.error('[Devices] Failed to enumerate devices:', err);
+    }
+}
+
 async function initCamera() {
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error('Camera API is not available. This is likely because you are using an insecure connection (HTTP) on a network IP. Please use https:// or access via http://localhost.');
+            throw new Error('Camera API is not available. Please ensure HTTPS or localhost.');
         }
 
-        const useMobileProfile = isMobileDevice();
-        const cameraProfiles = useMobileProfile
-            ? [
-                { video: { width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' }, audio: true },
-                { video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' }, audio: true },
-            ]
-            : [
-                { video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 }, facingMode: 'user' }, audio: true },
-                { video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 }, facingMode: 'user' }, audio: true },
-            ];
-        let lastErr = null;
-        for (const constraints of cameraProfiles) {
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                console.log('[Camera] Successfully initialized with constraints:', constraints);
-                break;
-            } catch (err) {
-                console.warn('[Camera] Failed with constraints:', constraints, err);
-                lastErr = err;
+        const loader = $('camera-loader');
+        if (loader) loader.classList.remove('hidden');
+
+        const preview = $('camera-preview');
+        const placeholder = $('camera-placeholder');
+
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(t => t.stop());
+            mediaStream = null;
+        }
+        if (preview) {
+            preview.srcObject = null;
+        }
+
+        updateMirrorPreview();
+
+        const camBtn = $('golive-btn-cam');
+        if (camBtn) {
+            camBtn.classList.toggle('active', isCameraOn);
+            camBtn.innerHTML = isCameraOn ? getCameraIconSvg() : getCameraOffIconSvg();
+        }
+        const micBtn = $('golive-btn-mic');
+        if (micBtn) {
+            micBtn.classList.toggle('active', isMicOn);
+            micBtn.innerHTML = isMicOn ? getMicIconSvg() : getMicOffIconSvg();
+        }
+        const mirrorBtn = $('golive-btn-mirror');
+        if (mirrorBtn) {
+            mirrorBtn.classList.toggle('active', isCameraMirrored);
+        }
+
+        if (!isCameraOn && !isMicOn) {
+            if (preview) preview.classList.add('hidden');
+            if (placeholder) placeholder.classList.remove('hidden');
+            if (loader) loader.classList.add('hidden');
+            console.log('[Camera] Both camera and microphone are disabled.');
+            await updateDevicesList();
+            return;
+        }
+
+        const videoConstraints = isCameraOn ? {
+            deviceId: selectedCameraId ? { exact: selectedCameraId } : undefined,
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 9/16 }
+        } : false;
+
+        const audioConstraints = isMicOn ? {
+            deviceId: selectedMicId ? { exact: selectedMicId } : undefined
+        } : false;
+
+        let stream = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: videoConstraints,
+                audio: audioConstraints
+            });
+        } catch (err) {
+            console.warn('[Camera] Failed with ideal constraints, trying generic constraints', err);
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: isCameraOn ? (selectedCameraId ? { deviceId: selectedCameraId } : true) : false,
+                audio: isMicOn ? (selectedMicId ? { deviceId: selectedMicId } : true) : false
+            });
+        }
+
+        mediaStream = stream;
+
+        if (isCameraOn) {
+            if (preview) {
+                preview.srcObject = mediaStream;
+                preview.classList.remove('hidden');
+                preview.play().catch(e => console.warn('[Camera] Autoplay prevented preview play:', e));
             }
+            if (placeholder) placeholder.classList.add('hidden');
+        } else {
+            if (preview) preview.classList.add('hidden');
+            if (placeholder) placeholder.classList.remove('hidden');
         }
-        if (!mediaStream) throw lastErr || new Error('Unable to access camera');
-        
-        // Try to attach to camera-preview if it exists (golive screen)
-        const cameraPreview = $('camera-preview');
-        if (cameraPreview) {
-            cameraPreview.srcObject = mediaStream;
-            console.log('[Camera] Attached to camera-preview element');
-        }
-        
-        console.log('[Camera] Camera initialized successfully');
+
+        await updateDevicesList();
+
+        if (loader) loader.classList.add('hidden');
+        console.log('[Camera] Camera initialization complete.');
     } catch (error) {
         console.error('[Camera] Initialization failed:', error);
+        const loader = $('camera-loader');
+        if (loader) loader.classList.add('hidden');
+        const placeholder = $('camera-placeholder');
+        if (placeholder) placeholder.classList.remove('hidden');
         showGlobalError(`Camera access denied: ${error.message}`);
     }
 }
+
 function stopCamera() {
-    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+    }
     const preview = $('camera-preview');
     if (preview) preview.srcObject = null;
 }
+
+async function togglePreliveCamera() {
+    isCameraOn = !isCameraOn;
+    console.log('[Prelive] Toggle camera. New state:', isCameraOn);
+    await initCamera();
+}
+
+async function togglePreliveMicrophone() {
+    isMicOn = !isMicOn;
+    console.log('[Prelive] Toggle microphone. New state:', isMicOn);
+    await initCamera();
+}
+
+function toggleMirrorPreview() {
+    isCameraMirrored = !isCameraMirrored;
+    localStorage.setItem('prelive_camera_mirrored', isCameraMirrored);
+    console.log('[Prelive] Toggle mirror. New state:', isCameraMirrored);
+    updateMirrorPreview();
+    
+    const mirrorBtn = $('golive-btn-mirror');
+    if (mirrorBtn) {
+        mirrorBtn.classList.toggle('active', isCameraMirrored);
+    }
+}
+
+function updateMirrorPreview() {
+    const preview = $('camera-preview');
+    if (preview) {
+        if (isCameraMirrored) {
+            preview.style.transform = 'scaleX(-1)';
+        } else {
+            preview.style.transform = 'none';
+        }
+    }
+}
+
+async function changeCameraDevice(deviceId) {
+    console.log('[Devices] Camera device changed:', deviceId);
+    selectedCameraId = deviceId;
+    localStorage.setItem('prelive_camera_id', deviceId);
+    if (isCameraOn) {
+        await initCamera();
+    }
+}
+
+async function changeMicDevice(deviceId) {
+    console.log('[Devices] Microphone device changed:', deviceId);
+    selectedMicId = deviceId;
+    localStorage.setItem('prelive_mic_id', deviceId);
+    if (isMicOn) {
+        await initCamera();
+    }
+}
+
+navigator.mediaDevices.addEventListener('devicechange', async () => {
+    console.log('[Devices] Device list changed');
+    if (currentScreen !== 'golive') return;
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoExists = devices.some(d => d.kind === 'videoinput' && d.deviceId === selectedCameraId);
+    const audioExists = devices.some(d => d.kind === 'audioinput' && d.deviceId === selectedMicId);
+
+    await updateDevicesList();
+
+    if (isCameraOn && !videoExists) {
+        console.warn('[Camera] Selected camera was unplugged. Reverting to default.');
+        const firstVideo = devices.find(d => d.kind === 'videoinput');
+        selectedCameraId = firstVideo ? firstVideo.deviceId : '';
+        await initCamera();
+    }
+
+    if (isMicOn && !audioExists) {
+        console.warn('[Microphone] Selected microphone was unplugged. Reverting to default.');
+        const firstAudio = devices.find(d => d.kind === 'audioinput');
+        selectedMicId = firstAudio ? firstAudio.deviceId : '';
+        await initCamera();
+    }
+});
 
 // Capture a single frame from the camera preview as a Blob (JPEG)
 function captureThumbnail() {
@@ -1599,9 +2071,12 @@ async function endStream() {
 }
 
 // ─── CHAT ──────────────────────────────────────────────────────────────
-$('chat-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendChatMessage('live');
-});
+const chatInputEl = $('chat-input');
+if (chatInputEl) {
+    chatInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendChatMessage('live');
+    });
+}
 function sendChatMessage(context) {
     const input = $('chat-input');
     const msg = input.value.trim();
@@ -1767,6 +2242,328 @@ function showGiftBurst(icon, sender, name) {
     el.innerHTML = `${icon}<br><small style="font-size:.5em;opacity:.8">${sender} sent ${name}</small>`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1600);
+}
+
+// ─── VIEWER GIFT SYSTEM ────────────────────────────────────────────────
+let viewerGiftsCache = [];
+let selectedViewerGift = null;
+let selectedGiftId = null;
+let selectedGift = null;
+let selectedGiftCost = null;
+let selectedGiftIcon = null;
+let isViewerGiftSending = false;
+
+async function loadViewerGifts() {
+    console.log('[Gift] loadViewerGifts called. Cache length:', viewerGiftsCache.length);
+    
+    if (viewerGiftsCache.length) {
+        console.log('[Gift] Using cached gifts');
+        renderViewerGiftList();
+        return;
+    }
+    
+    try {
+        console.log('[Gift] Fetching gifts from API');
+        viewerGiftsCache = await retryAsync(() => apiReq('GET', '/api/gifts'), { retries: 1, delayMs: 500 });
+        console.log('[Gift] Gifts loaded:', viewerGiftsCache);
+        renderViewerGiftList();
+    } catch (err) {
+        console.error('[Gift] Failed to load viewer gifts:', err);
+        renderViewerGiftList(); // Show empty state
+    }
+}
+
+function renderViewerGiftList() {
+    const giftList = document.getElementById('viewer-gift-list');
+    if (!giftList) {
+        console.warn('[Gift] viewer-gift-list element not found');
+        return;
+    }
+    
+    console.log('[Gift] Rendering gifts. Cache length:', viewerGiftsCache.length);
+    
+    if (viewerGiftsCache.length === 0) {
+        giftList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #999; padding: 20px; font-size: 0.9rem;">No gifts available</div>';
+        return;
+    }
+    
+    // Build HTML for all gifts
+    giftList.innerHTML = viewerGiftsCache.map((g) => `
+        <div class="viewer-gift-item ${String(selectedGiftId) === String(g.id) ? 'selected' : ''}" data-gift-id="${g.id}">
+            <div class="gift-icon">${g.icon}</div>
+            <div class="gift-name">${g.name}</div>
+            <div class="gift-cost">🪙 ${g.coin_cost}</div>
+        </div>
+    `).join('');
+    
+    // Set up event delegation if not already done
+    setupGiftListEventDelegation();
+
+    // Update send button state
+    const sendBtn = document.getElementById('viewer-send-gift-btn');
+    if (sendBtn) {
+        sendBtn.disabled = !selectedViewerGift;
+        sendBtn.style.opacity = selectedViewerGift ? '1' : '0.5';
+        console.log('[Gift] Send button state updated. Disabled:', !selectedViewerGift);
+    }
+}
+
+// Setup event delegation once
+function setupGiftListEventDelegation() {
+    const giftList = document.getElementById('viewer-gift-list');
+    if (!giftList) return;
+    
+    // Check if already setup (to avoid multiple listeners)
+    if (giftList.dataset.delegationSetup === 'true') return;
+    
+    console.log('[Gift] Setting up event delegation for gift list');
+    
+    giftList.addEventListener('click', (event) => {
+        const giftItem = event.target.closest('.viewer-gift-item');
+        if (!giftItem) return;
+        
+        console.log('[Gift] Gift item clicked via delegation:', giftItem.dataset.giftId);
+        event.stopPropagation();
+        selectViewerGift(giftItem.dataset.giftId, event);
+    });
+    
+    giftList.dataset.delegationSetup = 'true';
+}
+
+function selectViewerGift(giftId, event) {
+    event?.stopPropagation?.();
+    console.log('[Gift] selectViewerGift called:', giftId);
+    
+    // Find and store the gift
+    selectedViewerGift = viewerGiftsCache.find(g => String(g.id) === String(giftId)) || null;
+    selectedGiftId = selectedViewerGift?.id ?? null;
+    selectedGift = selectedViewerGift;
+    selectedGiftCost = selectedViewerGift?.coin_cost ?? null;
+    selectedGiftIcon = selectedViewerGift?.icon ?? null;
+    
+    console.log('[Gift] Gift selected:', {
+        id: selectedGiftId,
+        name: selectedViewerGift?.name,
+        cost: selectedGiftCost,
+        icon: selectedGiftIcon
+    });
+    
+    // Clear any previous error messages
+    clearViewerGiftError();
+    
+    // Update UI without full re-render to preserve DOM and event listeners
+    updateGiftSelectionUI();
+    
+    // Update send button state
+    const sendBtn = document.getElementById('viewer-send-gift-btn');
+    if (sendBtn) {
+        sendBtn.disabled = !selectedViewerGift;
+        sendBtn.style.opacity = selectedViewerGift ? '1' : '0.5';
+    }
+}
+
+// Helper function to update UI without full DOM re-render
+function updateGiftSelectionUI() {
+    const giftList = document.getElementById('viewer-gift-list');
+    if (!giftList) return;
+    
+    // Update visual state of all gift items
+    giftList.querySelectorAll('.viewer-gift-item').forEach((item) => {
+        const itemGiftId = String(item.dataset.giftId);
+        const isSelected = itemGiftId === String(selectedGiftId);
+        
+        if (isSelected) {
+            item.classList.add('selected');
+            console.log('[Gift] Added "selected" class to gift:', itemGiftId);
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+async function sendViewerGift() {
+    if (!currentUser) {
+        console.log('[Gift] Not authenticated, showing auth overlay');
+        showAuthOverlay('login');
+        return;
+    }
+    
+    if (!selectedViewerGift) {
+        console.log('[Gift] No gift selected');
+        showViewerGiftError('Please select a gift first');
+        return;
+    }
+    
+    if (!currentStream) {
+        console.log('[Gift] No active stream');
+        showViewerGiftError('No active stream');
+        return;
+    }
+    
+    if (isViewerGiftSending) {
+        console.log('[Gift] Already sending a gift, ignoring duplicate request');
+        return;
+    }
+    
+    isViewerGiftSending = true;
+    
+    const sendBtn = document.getElementById('viewer-send-gift-btn');
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = '🎁 Sending...';
+    }
+
+    try {
+        // Get receiver ID (stream host)
+        let receiverId = currentStream.host_id ?? currentStream.user_id ?? currentStream.host?.id;
+        console.log('[Gift] Initial receiver_id:', receiverId);
+        
+        // If receiver ID not found, fetch fresh stream data
+        if (!receiverId && currentStream.id) {
+            console.log('[Gift] Fetching fresh stream data to get host_id');
+            try {
+                const latestStream = await apiReq('GET', `/api/streams/${currentStream.id}`);
+                receiverId = latestStream.host_id ?? latestStream.user_id ?? latestStream.host?.id;
+                if (receiverId) {
+                    currentStream.host_id = receiverId;
+                    console.log('[Gift] Got receiver_id from fresh stream data:', receiverId);
+                }
+            } catch (e) {
+                console.error('[Gift] Failed to fetch fresh stream data:', e);
+            }
+        }
+        
+        if (!receiverId) {
+            throw new Error('Unable to send gift: stream host is unavailable. Please try again.');
+        }
+        
+        // Prevent sending gift to self
+        if (Number(receiverId) === Number(currentUser.id)) {
+            throw new Error('You cannot send gifts to your own stream.');
+        }
+        
+        // Check coin balance
+        const senderBalance = Number(currentUser.coin_balance) || 0;
+        const giftCost = Number(selectedViewerGift.coin_cost) || 0;
+        
+        console.log('[Gift] Checking balance. Sender balance:', senderBalance, 'Gift cost:', giftCost);
+        
+        if (senderBalance < giftCost) {
+            throw new Error(`Not enough coins to send this gift. Need ${giftCost}, you have ${senderBalance}.`);
+        }
+
+        // Build and validate gift payload
+        const giftPayload = {
+            gift_id: selectedViewerGift.id,
+            stream_id: currentStream.id,
+            receiver_id: receiverId,
+        };
+        
+        console.log('[Gift] Validating gift payload:', giftPayload);
+        
+        if (!giftPayload.gift_id || !giftPayload.stream_id || !giftPayload.receiver_id) {
+            throw new Error(`Invalid gift payload. gift_id: ${giftPayload.gift_id}, stream_id: ${giftPayload.stream_id}, receiver_id: ${giftPayload.receiver_id}`);
+        }
+        
+        // Send gift via API
+        console.log('[Gift] Sending gift payload to /api/gifts/send...');
+        const response = await apiReq('POST', '/api/gifts/send', giftPayload);
+        
+        console.log('[Gift] API response received:', response);
+        
+        if (!response || response.error) {
+            throw new Error(response?.error?.message || response?.message || 'Failed to send gift');
+        }
+
+        // Success: Broadcast gift event to other viewers
+        console.log('[Gift] Gift sent successfully. Broadcasting event...');
+        
+        if (window.roomChannel) {
+            console.log('[Gift] Broadcasting gift-animation event via roomChannel');
+            window.roomChannel.send({
+                type: 'broadcast',
+                event: 'gift-animation',
+                payload: {
+                    sender: currentUser.username,
+                    receiver: currentStream.username,
+                    gift: selectedViewerGift,
+                }
+            });
+        } else {
+            console.log('[Gift] roomChannel not available for broadcasting');
+        }
+
+        // Show success animation
+        showGiftBurst(selectedViewerGift.icon, currentUser.username, selectedViewerGift.name);
+        
+        // Update user balance immediately
+        const previousBalance = currentUser.coin_balance;
+        currentUser.coin_balance = Math.max(0, senderBalance - giftCost);
+        localStorage.setItem('tl_user', JSON.stringify(currentUser));
+        
+        console.log('[Gift] User balance updated. Previous:', previousBalance, 'New:', currentUser.coin_balance);
+        
+        // Show success message with gift name
+        const giftName = selectedViewerGift?.name || 'Gift';
+        showViewerGiftSuccess(`🎉 ${giftName} sent successfully!`);
+        
+        // Clear selection state AFTER success confirmation
+        console.log('[Gift] Clearing gift selection state');
+        selectedViewerGift = null;
+        selectedGiftId = null;
+        selectedGift = null;
+        selectedGiftCost = null;
+        selectedGiftIcon = null;
+        
+        clearViewerGiftError();
+        updateGiftSelectionUI(); // Update UI to reflect cleared selection (no full re-render)
+        
+    } catch (err) {
+        console.error('[Gift] Error sending gift:', err);
+        const errorMsg = err.message || 'Failed to send gift. Please try again.';
+        showViewerGiftError(errorMsg);
+    } finally {
+        isViewerGiftSending = false;
+        const sendBtn = document.getElementById('viewer-send-gift-btn');
+        if (sendBtn) {
+            sendBtn.disabled = !selectedViewerGift;
+            sendBtn.textContent = 'Send Gift';
+            console.log('[Gift] Send button re-enabled. Disabled state:', !selectedViewerGift);
+        }
+    }
+}
+
+function showViewerGiftError(message) {
+    const errorEl = document.getElementById('viewer-gift-error');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+        errorEl.style.color = '#ff6b6b';
+        errorEl.style.background = 'rgba(255, 107, 107, 0.1)';
+    }
+}
+
+function clearViewerGiftError() {
+    const errorEl = document.getElementById('viewer-gift-error');
+    if (errorEl) {
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+    }
+}
+
+function showViewerGiftSuccess(message) {
+    const errorEl = document.getElementById('viewer-gift-error');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.color = '#51cf66';
+        errorEl.style.background = 'rgba(81, 207, 102, 0.1)';
+        errorEl.classList.remove('hidden');
+        setTimeout(() => {
+            errorEl.classList.add('hidden');
+            errorEl.style.color = '#ff6b6b';
+            errorEl.style.background = 'rgba(255, 107, 107, 0.1)';
+        }, 3000);
+    }
 }
 
 // ─── WALLET ────────────────────────────────────────────────────────────
@@ -2441,7 +3238,7 @@ async function toggleMic() {
         if (mediaStream) {
             mediaStream.getAudioTracks().forEach((t) => { t.enabled = targetEnabled; });
         }
-        await livekitRoom.localParticipant.setMicrophoneEnabled(targetEnabled);
+        await livekitRoom.localParticipant.setMicrophoneEnabled(targetEnabled, targetEnabled && selectedMicId ? { deviceId: selectedMicId } : undefined);
         const pubs = Array.from(livekitRoom.localParticipant.audioTrackPublications.values());
         for (const pub of pubs) {
             const track = pub?.track;
@@ -2492,7 +3289,7 @@ async function toggleCam() {
     btn.disabled = true;
 
     try {
-        await livekitRoom.localParticipant.setCameraEnabled(!enabled);
+        await livekitRoom.localParticipant.setCameraEnabled(!enabled, !enabled && selectedCameraId ? { deviceId: selectedCameraId } : undefined);
         await syncHostControlButtons();
     } catch (e) {
         console.error('Failed to toggle camera:', e);
@@ -3206,9 +4003,15 @@ function setAvatar(el, avatarUrl, username) {
     initSearch();
     loadStreams();
     document.addEventListener('click', (event) => {
+        // This handler only manages the HOST/old gift panel popup (not the permanent viewer gift panel).
+        // The viewer-gift-panel is a permanent sidebar element and must never be closed by outside clicks.
+        if (currentScreen === 'live' && !isHost) return; // viewer mode — do nothing
         const panel = $('gift-panel');
         if (!panel || panel.classList.contains('hidden')) return;
         const target = event.target;
+        // If the click target is no longer attached to the document (e.g. after a re-render
+        // destroyed it mid-event), do not treat it as an outside click.
+        if (!document.documentElement.contains(target)) return;
         const giftBtn = target?.closest?.('.live-actions-right .action-btn[title="Gift"]');
         if (giftBtn) return;
         if (!panel.contains(target)) {

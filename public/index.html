@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 </head>
 
 <body>
@@ -423,50 +424,103 @@
            SCREEN: GO LIVE
            ══════════════════════════════════════════════════════════════════════════ -->
       <section id="screen-golive" class="screen hidden">
-        <div class="golive-container">
-          <h2 class="screen-title">Start Your Stream</h2>
-          <div class="camera-preview-wrap">
-            <video id="camera-preview" autoplay muted playsinline></video>
-            <div class="camera-overlay">
-              <span class="preview-label">PREVIEW</span>
+        <div class="golive-dashboard-layout">
+          <!-- Left Control Panel (Floating controls) -->
+          <div class="golive-panel-left glass">
+            <div class="panel-header">
+              <svg viewBox="0 0 24 24" class="panel-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-1.41-7.07a4 4 0 0 1 0 5.66m-9.9 0a6 6 0 0 1 0-8.49m1.41 7.07a4 4 0 0 1 0-5.66"/></svg>
+              <h3>Controls</h3>
+            </div>
+            <div class="panel-content">
+              <button type="button" id="golive-btn-cam" class="ctrl-icon-btn active" onclick="togglePreliveCamera()" title="Toggle Camera">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-video"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+              </button>
+              <button type="button" id="golive-btn-mic" class="ctrl-icon-btn active" onclick="togglePreliveMicrophone()" title="Toggle Microphone">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </button>
+              <button type="button" id="golive-btn-mirror" class="ctrl-icon-btn" onclick="toggleMirrorPreview()" title="Mirror Preview">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+              </button>
             </div>
           </div>
-          <div class="golive-form glass">
-            <div class="form-group">
-              <label>Stream Title</label>
-              <input type="text" id="stream-title" placeholder="What are you streaming today?" />
-            </div>
-            <div class="form-group">
-              <label>Category</label>
-              <select id="stream-category">
-                <option value="General">🌐 General</option>
-                <option value="Gaming">🎮 Gaming</option>
-                <option value="Music">🎵 Music</option>
-                <option value="Talk">💬 Talk</option>
-                <option value="Dance">💃 Dance</option>
-                <option value="Cooking">🍳 Cooking</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Stream Type</label>
-              <div class="stream-type-picker">
-                <button class="type-btn active" data-type="public">
-                  <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  Public
-                </button>
-                <button class="type-btn" data-type="private">
-                  <svg class="btn-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  Private
-                </button>
-                <button class="type-btn" data-type="group">
-                  <svg class="btn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  Group
-                </button>
+
+          <!-- Center Camera Preview Area -->
+          <div class="golive-preview-container">
+            <div class="camera-preview-wrap-9-16">
+              <video id="camera-preview" autoplay muted playsinline></video>
+              <div id="camera-placeholder" class="camera-placeholder hidden">
+                <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="placeholder-icon"><path d="M10.66 6H14a2 2 0 0 1 2 2v3.34"/><path d="m22 8-6 4 6 4v-8Z"/><path d="M3.56 3.56 20.44 20.44"/><path d="M2 8.12V16a2 2 0 0 0 2 2h9.88"/></svg>
+                <p>Camera is Off</p>
+              </div>
+              <div id="camera-loader" class="camera-loader hidden">
+                <div class="spinner"></div>
+              </div>
+              <div class="camera-overlay">
+                <span class="preview-label">PREVIEW</span>
               </div>
             </div>
-            <button id="go-live-btn" class="btn-primary btn-live w-full">
-              <span class="live-dot-anim"></span> GO LIVE
-            </button>
+          </div>
+
+          <!-- Right Settings Panel -->
+          <div class="golive-panel-right glass">
+            <div class="panel-header">
+              <svg viewBox="0 0 24 24" class="panel-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              <h3>Stream Setup</h3>
+            </div>
+            <div class="panel-content">
+              <div class="device-section">
+                <div class="form-group">
+                  <label for="camera-device-select">Camera Source</label>
+                  <select id="camera-device-select" class="device-select" onchange="changeCameraDevice(this.value)">
+                    <option value="">Default Camera</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="mic-device-select">Microphone Source</label>
+                  <select id="mic-device-select" class="device-select" onchange="changeMicDevice(this.value)">
+                    <option value="">Default Microphone</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="panel-divider"></div>
+
+              <div class="form-group">
+                <label>Stream Title</label>
+                <input type="text" id="stream-title" placeholder="What are you streaming today?" />
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="stream-category">
+                  <option value="General">🌐 General</option>
+                  <option value="Gaming">🎮 Gaming</option>
+                  <option value="Music">🎵 Music</option>
+                  <option value="Talk">💬 Talk</option>
+                  <option value="Dance">💃 Dance</option>
+                  <option value="Cooking">🍳 Cooking</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Stream Type</label>
+                <div class="stream-type-picker">
+                  <button type="button" class="type-btn active" data-type="public">
+                    <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Public
+                  </button>
+                  <button type="button" class="type-btn" data-type="private">
+                    <svg class="btn-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Private
+                  </button>
+                  <button type="button" class="type-btn" data-type="group">
+                    <svg class="btn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Group
+                  </button>
+                </div>
+              </div>
+              <button id="go-live-btn" class="btn-primary btn-live w-full">
+                <span class="live-dot-anim"></span> GO LIVE
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -475,91 +529,274 @@
            SCREEN: LIVE STREAM
            ══════════════════════════════════════════════════════════════════════════ -->
       <section id="screen-live" class="screen hidden screen-fullscreen">
-        <div class="live-container">
-          <!-- Video Area -->
-          <div id="video-area" class="video-area">
-            <video id="remote-video" autoplay playsinline class="live-video"></video>
-            <video id="local-video" autoplay muted playsinline class="live-video hidden"></video>
-            <div id="video-placeholder" class="video-placeholder hidden">
-              <div class="placeholder-avatar" id="placeholder-avatar-el"></div>
-              <p>Camera is Off</p>
+        <!-- HOST LIVE STREAM LAYOUT -->
+        <div id="host-live-screen" class="live-container host-live-layout hidden">
+          <!-- Left Panel: Host Analytics -->
+          <div class="panel-left">
+            <div class="panel-header">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <h3>Analytics</h3>
             </div>
-            <div id="connection-overlay" class="video-placeholder">
-              <div class="spinner"></div>
-              <p>Connecting to stream...</p>
+            
+            <!-- Viewer Stats -->
+            <div class="analytics-section">
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-value" id="host-current-viewers">0</div>
+                  <div class="stat-label">Current</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value" id="host-peak-viewers">0</div>
+                  <div class="stat-label">Peak</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value" id="host-total-joins">0</div>
+                  <div class="stat-label">Total Joins</div>
+                </div>
+              </div>
             </div>
-            <div id="reaction-overlay" class="reaction-overlay"></div>
+
+            <!-- Gift Activity -->
+            <div class="analytics-section">
+              <div class="panel-header" style="border: none; padding: 0; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #fbbf24;"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                <h3 style="font-size: 0.85rem; color: #fbbf24;">Gifts Received</h3>
+              </div>
+              <div class="gift-activity-list" id="host-gift-activity">
+                <div class="empty-state-text">No gifts received yet</div>
+              </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="analytics-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+              <div class="panel-header" style="border: none; padding: 0; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <h3 style="font-size: 0.85rem; color: #60a5fa;">Activity Feed</h3>
+              </div>
+              <div class="activity-feed-list" id="host-activity-feed">
+                <div class="empty-state-text">Waiting for activity...</div>
+              </div>
+            </div>
           </div>
 
-          <!-- Top HUD -->
-          <div class="live-hud-top">
-            <button class="back-btn" onclick="leaveLiveScreen()">←</button>
-            <div class="hud-info">
-              <div class="hud-stream-title" id="hud-title">Stream Title</div>
-              <div class="hud-meta">
-                <span class="live-badge">LIVE</span>
-                <span class="viewer-count">
+          <!-- Center Area: 9:16 Local Stream Preview -->
+          <div class="live-center-area">
+            <div class="video-area-9-16">
+              <div id="host-video-area" class="video-area">
+                <video id="host-local-video" autoplay muted playsinline class="live-video hidden"></video>
+                <div id="host-video-placeholder" class="video-placeholder hidden">
+                  <div class="placeholder-avatar" id="host-placeholder-avatar-el"></div>
+                  <p>Camera is Off</p>
+                </div>
+                <div id="host-connection-overlay" class="video-placeholder">
+                  <div class="spinner"></div>
+                  <p>Initializing camera...</p>
+                </div>
+                <div id="host-reaction-overlay" class="reaction-overlay"></div>
+              </div>
+              
+              <!-- Video HUD Overlays -->
+              <div class="video-hud-top-new">
+                <div class="video-hud-left">
+                  <button class="back-btn" onclick="leaveLiveScreen()" title="Exit Stream">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                  </button>
+                  <div class="video-hud-title-card">
+                    <div class="hud-stream-title" id="host-hud-title">Host Livestream</div>
+                    <div class="hud-meta">
+                      <span class="live-badge">LIVE</span>
+                      <span class="viewer-count" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: rgba(255,255,255,0.8);">
+                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="margin-right: 2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span id="host-hud-viewers">0</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Panel: Host Controls & Chat -->
+          <div class="panel-right">
+            <div class="panel-header">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <h3>Controls</h3>
+            </div>
+            
+            <div class="controls-content">
+              <!-- Mute / Camera Row -->
+              <div class="controls-row">
+                <button id="host-hud-cam-btn" class="hud-ctrl-btn" onclick="toggleCam()" title="Camera On/Off">
+                  <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                </button>
+                <button id="host-hud-mic-btn" class="hud-ctrl-btn" onclick="toggleMic()" title="Mic On/Off">
+                  <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                </button>
+                <button id="host-mirror-btn" class="hud-ctrl-btn" onclick="toggleLiveMirror()" title="Camera Mirror">
+                  <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
+              </div>
+
+              <div class="panel-divider"></div>
+
+              <!-- Device Dropdowns -->
+              <div class="form-group">
+                <label for="host-camera-device-select" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Camera Device</label>
+                <select id="host-camera-device-select" class="device-select" onchange="changeLiveCameraDevice(this.value)">
+                  <option value="">Default Camera</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="host-mic-device-select" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Microphone</label>
+                <select id="host-mic-device-select" class="device-select" onchange="changeLiveMicDevice(this.value)">
+                  <option value="">Default Microphone</option>
+                </select>
+              </div>
+
+              <div class="panel-divider"></div>
+
+              <!-- End Stream -->
+              <button id="host-end-stream-btn" class="btn-end-stream-new" onclick="endStream()">
+                ■ End Stream
+              </button>
+            </div>
+
+            <!-- Host Live Chat -->
+            <div class="host-chat-section">
+              <div class="panel-header chat-header-mini">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #a855f7;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <h3>Live Chat</h3>
+              </div>
+              <div class="chat-wrapper-mini">
+                <div id="host-chat-messages" class="chat-messages"></div>
+                <div class="chat-input-row" style="margin-top: auto;">
+                  <input type="text" id="host-chat-input" placeholder="Say something..." onkeydown="if(event.key==='Enter') sendChatMessage('live')" />
+                  <button id="host-chat-send-btn" class="icon-btn" onclick="sendChatMessage('live')" style="border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: white; border: none; cursor: pointer;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEWER LIVE STREAM LAYOUT -->
+        <div id="viewer-live-screen" class="live-container viewer-live-layout hidden">
+          <!-- Left Panel: Live Chat -->
+          <div class="panel-left viewer-chat-panel">
+            <div class="panel-header">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <h3>Live Chat</h3>
+            </div>
+            <div class="viewer-chat-wrapper">
+              <div id="viewer-chat-messages" class="chat-messages">
+                <div class="chat-empty-state">
+                  <span class="chat-empty-icon">💬</span>
+                  <p>Welcome to the stream! Say hello to the host.</p>
+                </div>
+              </div>
+              <div class="chat-input-row" style="margin-top: auto;">
+                <input type="text" id="viewer-chat-input" placeholder="Say something..." onkeydown="if(event.key==='Enter') sendChatMessage('live')" />
+                <button id="viewer-chat-send-btn" class="icon-btn" onclick="sendChatMessage('live')" style="border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: white; border: none; cursor: pointer;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Center Area: 9:16 Remote Stream -->
+          <div class="live-center-area">
+            <div class="video-area-9-16">
+              <div id="viewer-video-area" class="video-area">
+                <video id="viewer-remote-video" autoplay playsinline class="live-video"></video>
+                <div id="viewer-video-placeholder" class="video-placeholder hidden">
+                  <div class="placeholder-avatar" id="viewer-placeholder-avatar-el"></div>
+                  <p>Camera is Off</p>
+                </div>
+                <div id="viewer-connection-overlay" class="video-placeholder">
+                  <div class="spinner"></div>
+                  <p>Connecting to stream...</p>
+                </div>
+                <div id="viewer-reaction-overlay" class="reaction-overlay"></div>
+              </div>
+              
+              <!-- Video HUD Overlays -->
+              <div class="video-hud-top-new">
+                <div class="video-hud-left">
+                  <button class="back-btn" onclick="leaveLiveScreen()" title="Leave Stream">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                  </button>
+                  <div class="video-hud-title-card">
+                    <div class="hud-stream-title" id="viewer-hud-title">Stream Title</div>
+                    <div class="hud-meta">
+                      <span class="live-badge">LIVE</span>
+                      <span class="viewer-count" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: rgba(255,255,255,0.8);">
+                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="margin-right: 2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span id="viewer-hud-viewers">0</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Viewer Playback controls overlayed inside center area -->
+              <div class="viewer-video-controls" id="viewer-viewer-controls">
+                <button id="viewer-viewer-mic-btn" class="hud-ctrl-btn" onclick="toggleViewerAudio()" title="Mute/Unmute Audio">
+                  <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                </button>
+                <button id="viewer-viewer-cam-btn" class="hud-ctrl-btn" onclick="toggleViewerVideo()" title="Hide/Show Video">
                   <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <span id="hud-viewers">0</span>
-                </span>
-              </div>
-            </div>
-
-            <!-- Host Controls -->
-            <div id="host-controls" class="host-controls hidden">
-              <button id="hud-mic-btn" class="hud-ctrl-btn" onclick="toggleMic()" title="Mute/Unmute Mic">
-                <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-              </button>
-              <button id="hud-cam-btn" class="hud-ctrl-btn" onclick="toggleCam()" title="Enable/Disable Camera">
-                <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-              </button>
-            </div>
-
-            <!-- Viewer Playback Controls -->
-            <div id="viewer-controls" class="viewer-controls hidden">
-              <button id="viewer-mic-btn" class="hud-ctrl-btn" onclick="toggleViewerAudio()" title="Mute/Unmute Audio">
-                <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              </button>
-              <button id="viewer-cam-btn" class="hud-ctrl-btn" onclick="toggleViewerVideo()" title="Hide/Show Video">
-                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-
-            <div class="hud-host">
-              <div class="host-avatar" id="hud-host-avatar"></div>
-              <div class="host-meta-wrap">
-                <span id="hud-host-name">Host</span>
-                <button id="hud-follow-btn" class="btn-follow-sm hidden" onclick="toggleFollow()">+ Follow</button>
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- Right: Gift + Reaction buttons -->
-          <div class="live-actions-right">
-            <button class="action-btn" onclick="sendReaction('❤️')" title="Heart">❤️</button>
-            <button class="action-btn" onclick="sendReaction('🔥')" title="Fire">🔥</button>
-            <button class="action-btn" onclick="toggleGiftPanel()" title="Gift">🎁</button>
-            <button class="action-btn" onclick="sendReaction('🎉')" title="Celebrate">🎉</button>
-            <button class="action-btn" onclick="openLiveChat()" title="Full Chat">💬</button>
-          </div>
+          <!-- Right Panel: Engagement (Host details, Gifts, Reactions) -->
+          <div class="panel-right viewer-engagement-panel">
+            <!-- Host Meta Card -->
+            <div class="viewer-host-info glass-mini">
+              <div class="hud-host">
+                <div class="host-avatar" id="viewer-hud-host-avatar"></div>
+                <div class="host-meta-wrap">
+                  <span id="viewer-hud-host-name" style="font-weight: 700; color: #fff;">Host</span>
+                  <button id="viewer-hud-follow-btn" class="btn-follow-sm hidden" onclick="toggleFollow()">+ Follow</button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Gifts Catalog -->
+            <div id="viewer-gift-panel" class="viewer-gift-panel-wrap">
+              <div class="panel-header" style="border: none; padding: 0; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #fbbf24;"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                <h3 style="font-size: 0.9rem; color: #fbbf24;">Send a Gift</h3>
+              </div>
+              <div id="viewer-gift-list" class="gift-list"></div>
+              <div id="viewer-gift-error" class="gift-error-msg hidden" style="font-size: 0.75rem; color: #ff6b6b; margin-top: 8px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 8px; text-align: center;"></div>
+              <button id="viewer-send-gift-btn" class="btn-primary w-full" style="margin-top: 12px; padding: 12px; border-radius: 10px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s ease;" onclick="sendViewerGift()" disabled>
+                Send Gift
+              </button>
+            </div>
 
-          <!-- Gift Panel -->
-          <div id="gift-panel" class="gift-panel glass hidden">
-            <h4>Send a Gift</h4>
-            <div id="gift-list" class="gift-list"></div>
-          </div>
+            <div class="panel-divider"></div>
 
-          <!-- End Stream button -->
-          <button id="end-stream-btn" class="btn-danger btn-end-stream hidden" onclick="endStream()">
-            ■ End Stream
-          </button>
-
-          <!-- Bottom: Chat -->
-          <div class="live-chat-area">
-            <div id="chat-messages" class="chat-messages"></div>
-            <div class="chat-input-row">
-              <input type="text" id="chat-input" placeholder="Say something..." />
-              <button id="chat-send-btn" onclick="sendChatMessage('live')">➤</button>
+            <!-- Reaction Buttons -->
+            <div class="reactions-panel-wrap">
+              <div class="panel-header" style="border: none; padding: 0; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #ef4444;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <h3 style="font-size: 0.9rem; color: #ef4444;">Send Reaction</h3>
+              </div>
+              <div class="viewer-reactions-row">
+                <button class="action-btn" onclick="sendReaction('❤️')" title="Heart">
+                  <svg viewBox="0 0 24 24" width="22" height="22" stroke="#ff4444" stroke-width="2" fill="#ff4444" stroke-linecap="round" stroke-linejoin="round" class="reaction-icon"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                </button>
+                <button class="action-btn" onclick="sendReaction('🔥')" title="Fire">
+                  <svg viewBox="0 0 24 24" width="22" height="22" stroke="#ff9f43" stroke-width="2" fill="#ff9f43" stroke-linecap="round" stroke-linejoin="round" class="reaction-icon"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                </button>
+                <button class="action-btn" onclick="sendReaction('🎉')" title="Celebrate">
+                  <svg viewBox="0 0 24 24" width="22" height="22" stroke="#10ac84" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="reaction-icon"><path d="M5.8 11.3 2 22l10.7-3.8z"/><path d="M4 22 22 4"/><path d="m20 9 2 2-2 2-2-2z"/><path d="M7 2 9 4 7 6 5 4z"/><path d="m14 3 2 2-2 2-2-2z"/><path d="m17 12 2 2-2 2-2-2z"/><path d="m11 9 2 2-2 2-9-2z"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -639,7 +876,9 @@
         <div class="screen-inner">
           <h2 class="screen-title">My Wallet</h2>
           <div class="wallet-balance-card glass">
-            <div class="balance-icon">🪙</div>
+            <div class="balance-icon" style="display: flex; justify-content: center; align-items: center;">
+              <lottie-player src="uploads/Coin.json" background="transparent" speed="1" style="width: 80px; height: 80px;" loop autoplay></lottie-player>
+            </div>
             <div class="balance-val" id="wallet-balance">—</div>
             <div class="balance-label">Mingoo Coins</div>
             <button class="btn-primary mt-1" onclick="showWithdrawModal()">💸 Request Withdrawal</button>

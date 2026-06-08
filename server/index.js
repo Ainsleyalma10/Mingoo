@@ -86,6 +86,7 @@ module.exports = app;
 
 // Initialize DB then start server
 const PORT = process.env.PORT || 3000;
+let currentPort = parseInt(PORT, 10);
 
 // Start the server only if we're not in a serverless environment (like Vercel)
 // or if we're running this file directly.
@@ -97,15 +98,18 @@ if (!isVercel) {
 
     server.on('error', (e) => {
         if (e.code === 'EADDRINUSE') {
-            console.warn(`\n⚠️  Port ${PORT} is busy, trying ${parseInt(PORT) + 1}...`);
+            const nextPort = currentPort + 1;
+            console.warn(`\n⚠️  Port ${currentPort} is busy, trying ${nextPort}...`);
+            currentPort = nextPort;
             setTimeout(() => {
                 server.close();
-                server.listen(parseInt(PORT) + 1);
+                server.listen(currentPort);
             }, 1000);
         }
     });
 
-    server.listen(PORT, '0.0.0.0', async () => {
+    server.listen(currentPort, '0.0.0.0', async () => {
+        const actualPort = server.address().port;
         const os = require('os');
         const networkInterfaces = os.networkInterfaces();
         let localIp = 'localhost';
@@ -119,15 +123,22 @@ if (!isVercel) {
         });
 
         console.log(`\n🚀 MingooLive server is UP!`);
-        console.log(`🏠 Local:   http://localhost:${PORT}`);
-        console.log(`🌐 Network: http://${localIp}:${PORT}`);
-        console.log(`📺 Admin:   http://localhost:${PORT}/admin.html`);
+        console.log(`🏠 Local:   http://localhost:${actualPort}`);
+        console.log(`🌐 Network: http://${localIp}:${actualPort}`);
+        console.log(`📺 Admin:   http://localhost:${actualPort}/admin.html`);
 
         // Start ngrok tunnel for HTTPS access (Camera/Mic support)
         try {
+            // Kill any existing ngrok process first to prevent port lock/multiple tunnels error
+            await new Promise((resolve) => {
+                const { exec } = require('child_process');
+                const killCmd = process.platform === 'win32' ? 'taskkill /F /IM ngrok.exe' : 'killall ngrok';
+                exec(killCmd, () => resolve()); // ignore error if no process was running
+            });
+
             const ngrok = require('ngrok');
             const ngrokOptions = {
-                addr: PORT,
+                addr: actualPort,
                 proto: 'http'
             };
             if (process.env.NGROK_AUTHTOKEN) {
