@@ -125,7 +125,8 @@ if (!isVercel) {
         console.log(`\n🚀 MingooLive server is UP!`);
         console.log(`🏠 Local:   http://localhost:${actualPort}`);
         console.log(`🌐 Network: http://${localIp}:${actualPort}`);
-        console.log(`📺 Admin:   http://localhost:${actualPort}/admin.html`);
+        console.log(`📺 Admin (Local):   http://localhost:${actualPort}/admin.html`);
+        console.log(`📺 Admin (Network): http://${localIp}:${actualPort}/admin.html`);
 
         // Start ngrok tunnel for HTTPS access (Camera/Mic support)
         try {
@@ -147,6 +148,7 @@ if (!isVercel) {
             const url = await ngrok.connect(ngrokOptions);
             console.log(`\n🔒 SECURE TUNNEL (Use this for Mobile Camera):`);
             console.log(`🔗 ${url}`);
+            console.log(`📺 Secure Admin: ${url}/admin.html`);
             console.log(`\n--------------------------------------------`);
         } catch (err) {
             console.warn('\n⚠️  Ngrok failed to start. This usually happens if you need an authtoken.');

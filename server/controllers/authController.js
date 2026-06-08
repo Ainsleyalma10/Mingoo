@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { db } = require('../config/db');
 const { getRequiredEnv } = require('../config/security');
 const admin = require('firebase-admin');
@@ -12,6 +13,32 @@ if (!admin.apps.length) {
 
 const generateToken = (id) =>
     jwt.sign({ id }, getRequiredEnv('JWT_SECRET'), { expiresIn: '30d' });
+
+// POST /api/auth/login
+const login = async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
+
+    try {
+        const { data: user, error } = await db.from('users').select('*').eq('email', email.toLowerCase()).single();
+        if (error || !user) return res.status(401).json({ message: 'Invalid credentials' });
+        if (user.is_banned) return res.status(403).json({ message: 'Account banned' });
+
+        if (!user.password) return res.status(401).json({ message: 'Account does not have a password set' });
+        
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+
+        const token = generateToken(user.id);
+        res.json({
+            id: user.id, username: user.username, email: user.email,
+            coin_balance: user.coin_balance, role: user.role,
+            avatar: user.avatar, token
+        });
+    } catch (e) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
 // POST /api/auth/google-login
 const googleLogin = async (req, res) => {
@@ -134,4 +161,4 @@ const getMe = async (req, res) => {
     }
 };
 
-module.exports = { googleLogin, completeRegistration, getMe };
+module.exports = { login, googleLogin, completeRegistration, getMe };

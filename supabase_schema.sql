@@ -419,3 +419,233 @@ CREATE TRIGGER trigger_posts_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_users_updated_at();
 
+-- ============================================
+-- 19. SUBSCRIPTIONS & PLANS
+-- ============================================
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  name TEXT NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  duration_days INTEGER NOT NULL,
+  coin_bonus INTEGER DEFAULT 0,
+  features JSONB DEFAULT '[]',
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_id BIGINT NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+  starts_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  status TEXT DEFAULT 'active', -- active, expired, cancelled
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 20. RBAC / ADMIN ROLES & PERMISSIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  name TEXT UNIQUE NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_permissions (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  action TEXT UNIQUE NOT NULL,
+  description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id BIGINT REFERENCES admin_roles(id) ON DELETE CASCADE,
+  permission_id BIGINT REFERENCES admin_permissions(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  role_id BIGINT REFERENCES admin_roles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 21. AUDIT LOGS
+-- ============================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  admin_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id BIGINT,
+  previous_value JSONB,
+  new_value JSONB,
+  ip_address TEXT,
+  device_info TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 22. ANALYTICS & REPORTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS host_analytics (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  host_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  total_stream_duration INTEGER DEFAULT 0, -- seconds
+  total_viewers INTEGER DEFAULT 0,
+  gifts_received INTEGER DEFAULT 0,
+  revenue_generated INTEGER DEFAULT 0,
+  UNIQUE(host_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS stream_analytics (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  stream_id BIGINT REFERENCES streams(id) ON DELETE CASCADE,
+  host_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  total_duration INTEGER DEFAULT 0,
+  unique_viewers INTEGER DEFAULT 0,
+  peak_concurrent INTEGER DEFAULT 0,
+  gifts_amount INTEGER DEFAULT 0,
+  revenue_generated INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS call_analytics (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  date DATE NOT NULL,
+  total_calls INTEGER DEFAULT 0,
+  total_duration INTEGER DEFAULT 0,
+  total_revenue INTEGER DEFAULT 0,
+  UNIQUE(date)
+);
+
+CREATE TABLE IF NOT EXISTS financial_reports (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  date DATE NOT NULL UNIQUE,
+  total_revenue INTEGER DEFAULT 0,
+  gift_revenue INTEGER DEFAULT 0,
+  call_revenue INTEGER DEFAULT 0,
+  subscription_revenue INTEGER DEFAULT 0,
+  platform_profit INTEGER DEFAULT 0,
+  host_earnings INTEGER DEFAULT 0,
+  withdrawals_paid INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 23. SYSTEM & MODERATION
+-- ============================================
+CREATE TABLE IF NOT EXISTS notification_logs (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  sender_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  target_type TEXT NOT NULL, -- single, multiple, hosts, all
+  message TEXT NOT NULL,
+  type TEXT DEFAULT 'in-app', -- push, in-app, email
+  status TEXT DEFAULT 'sent',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_activity_logs (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  activity_type TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS moderation_reports (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  reporter_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  reported_user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL, -- user, stream, message, post
+  content_id TEXT,
+  reason TEXT NOT NULL,
+  status TEXT DEFAULT 'pending', -- pending, reviewed, resolved, dismissed
+  resolved_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL, -- positive for add, negative for remove
+  transaction_type TEXT NOT NULL, -- purchase, gift, call, subscription, withdrawal, admin_adjustment
+  reference_id TEXT,
+  status TEXT DEFAULT 'completed',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed default Subscription Plans
+INSERT INTO subscription_plans (name, price, duration_days, coin_bonus, features) VALUES
+('Free', 0.00, 30, 0, '["Basic Access"]'),
+('Silver', 9.99, 30, 100, '["Priority Support", "Silver Badge"]'),
+('Gold', 19.99, 30, 300, '["Priority Support", "Gold Badge", "HD Streams"]'),
+('VIP', 49.99, 30, 1000, '["24/7 Support", "VIP Badge", "4K Streams", "Private Calls"]')
+ON CONFLICT DO NOTHING;
+
+-- Seed Default Admin Roles
+INSERT INTO admin_roles (name, description) VALUES
+('Super Admin', 'Full system access'),
+('Admin', 'Most platform controls'),
+('Moderator', 'Content moderation only'),
+('Finance Manager', 'Revenue and withdrawals'),
+('Support Agent', 'User support tools')
+ON CONFLICT (name) DO NOTHING;
+
+-- Enable Realtime for Dashboard Updates (Safely ignoring duplicates)
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE users; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE streams; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE transactions; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE moderation_reports; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE withdrawals; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ============================================
+-- 24. ADMIN SEED DATA
+-- ============================================
+-- Enable pgcrypto to hash passwords inside the database
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1. Insert the Users (Admin & Super Admin)
+INSERT INTO users (username, email, password, role, coin_balance, is_banned)
+VALUES 
+('MingooSuper', 'superadmin@mingoo.com', crypt('superadmin123', gen_salt('bf', 10)), 'admin', 9999999, FALSE),
+('MingooAdmin', 'admin@mingoo.com', crypt('admin1234', gen_salt('bf', 10)), 'admin', 9999999, FALSE)
+ON CONFLICT (email) DO NOTHING;
+
+-- 2. Assign Roles in admin_users table
+DO $$
+DECLARE
+    super_user_id BIGINT;
+    admin_user_id BIGINT;
+    super_role_id BIGINT;
+    admin_role_id BIGINT;
+BEGIN
+    -- Get User IDs
+    SELECT id INTO super_user_id FROM users WHERE email = 'superadmin@mingoo.com';
+    SELECT id INTO admin_user_id FROM users WHERE email = 'admin@mingoo.com';
+    
+    -- Get Role IDs
+    SELECT id INTO super_role_id FROM admin_roles WHERE name = 'Super Admin';
+    SELECT id INTO admin_role_id FROM admin_roles WHERE name = 'Admin';
+    
+    -- Insert mapping if not exists
+    IF super_user_id IS NOT NULL AND super_role_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = super_user_id) THEN
+            INSERT INTO admin_users (user_id, role_id) VALUES (super_user_id, super_role_id);
+        END IF;
+    END IF;
+
+    IF admin_user_id IS NOT NULL AND admin_role_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = admin_user_id) THEN
+            INSERT INTO admin_users (user_id, role_id) VALUES (admin_user_id, admin_role_id);
+        END IF;
+    END IF;
+END $$;
+
